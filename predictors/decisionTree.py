@@ -17,8 +17,8 @@ class DecisionNode(TreeNode):
         self.featureValue = featureValue
 
 class LeafNode(TreeNode):
-    def __init__(self, left=None, right=None, prediction=None):
-        super().__init__(left, right)
+    def __init__(self, prediction):
+        super().__init__(None, None)
         self.prediction = prediction
 
 class DecisionTree:
@@ -94,7 +94,7 @@ class DecisionTree:
         
         for feature in features:
             if (dataFrame.dtypes[feature].type == np.int64 or dataFrame.dtypes[feature].type == np.float64):
-                values = pd.Series([i for i in dataFrame[feature].unique()])
+                values = pd.Series([i for i in dataFrame[feature]])
                 quantileValues = values.quantile(quantiles, "linear")
 
                 # Find the best quantile value
@@ -132,9 +132,9 @@ class DecisionTree:
     def train(self, dataFrame):
         ''' '''
         feature, featureValue, infoGain = self.findBestFeature(dataFrame)
-        print("Best feature", feature)
+        print("Best feature", feature, "Best gain:", infoGain)
         if (infoGain == 0):
-            return LeafNode(prediction=dataFrame[self._targetFeature].value_counts())
+            return LeafNode(dataFrame[self._targetFeature].value_counts())
 
         trueData, falseData = self.partition(dataFrame, feature, featureValue)
 
@@ -147,20 +147,21 @@ class DecisionTree:
         ''' '''
         result = {}
         for i, row in dataFrame.iterrows():
-            result[row["Name"]] = self.classifyOneRow(row, node)
-        return result
+            result[i] = self.classifyOneSample(row, node)
+        return pd.Series(result)
 
-    def classifyOneRow(self, row, node):
+    def classifyOneSample(self, row, node):
+        ''' '''
         if (isinstance(node, LeafNode)):
-            return node.prediction
+            return node.prediction.index[0]
         else:
             # First check if the value type is numeric, then we do inequality check for numbers
             # If the value is not numeric then simply compare using ==
             value = row[node.feature]
             if ((isinstance(value, int) or isinstance(value, float)) and (value >= node.featureValue)) or (value == node.featureValue):
-                return self.classifyOneRow(row, node.left)
+                return self.classifyOneSample(row, node.left)
             else:
-                return self.classifyOneRow(row, node.right)
+                return self.classifyOneSample(row, node.right)
 
     # def printTree(self, rootNode, spacing=""):
     #     ''' '''
