@@ -24,7 +24,8 @@ class LeafNode(TreeNode):
 class DecisionTree:
     def __init__(self, targetFeature):
         self._targetFeature = targetFeature
-        
+        self._trainedRootNode = None
+
     @property
     def targetFeature(self):
         return self._targetFeature
@@ -50,6 +51,7 @@ class DecisionTree:
         return impurity
     
     def partition(self, dataFrame, feature, value):
+        ''' '''
         trueData, falseData = None, None
         
         if (dataFrame.dtypes[feature].type == np.int64 or dataFrame.dtypes[feature].type == np.float64):
@@ -129,28 +131,32 @@ class DecisionTree:
                     
         return bestFeature, bestFeatureValue, bestGain
         
-    def train(self, dataFrame):
+    def buildTree(self, dataFrame):
         ''' '''
         feature, featureValue, infoGain = self.findBestFeature(dataFrame)
-        print("Best feature", feature, "Best gain:", infoGain)
+        print("Best feature:", feature, "Best gain:", infoGain)
         if (infoGain == 0):
             return LeafNode(dataFrame[self._targetFeature].value_counts())
 
         trueData, falseData = self.partition(dataFrame, feature, featureValue)
 
-        left = self.train(trueData)
-        right = self.train(falseData)
+        left = self.buildTree(trueData)
+        right = self.buildTree(falseData)
 
         return DecisionNode(left, right, feature, featureValue)
 
-    def classify(self, dataFrame, node):
+    def train(self, dataFrame):
+        ''' '''
+        self._trainedRootNode = self.buildTree(dataFrame)
+
+    def classify(self, dataFrame):
         ''' '''
         result = {}
         for i, row in dataFrame.iterrows():
-            result[i] = self.classifyOneSample(row, node)
+            result[i] = self._classifyOneSample(row, self._trainedRootNode)
         return pd.Series(result)
 
-    def classifyOneSample(self, row, node):
+    def _classifyOneSample(self, row, node):
         ''' '''
         if (isinstance(node, LeafNode)):
             return node.prediction.index[0]
@@ -159,34 +165,8 @@ class DecisionTree:
             # If the value is not numeric then simply compare using ==
             value = row[node.feature]
             if ((isinstance(value, int) or isinstance(value, float)) and (value >= node.featureValue)) or (value == node.featureValue):
-                return self.classifyOneSample(row, node.left)
+                return self._classifyOneSample(row, node.left)
             else:
-                return self.classifyOneSample(row, node.right)
-
-    # def printTree(self, rootNode, spacing=""):
-    #     ''' '''
-    #     print("Beginning",type(rootNode) == LeafNode)
-    #     print(id(LeafNode))
-    #     print(id(type(rootNode)))
-        # if (isinstance(rootNode, LeafNode)):
-        #     print(spacing, "Prediction:", rootNode.prediction)
-        # else:
-        #     print(type(rootNode))
-        #     print(spacing, "Split at feature", rootNode.feature, ". Value:", rootNode.featureValue)
-        #     print(spacing, " True:")
-        #     self.printTree(rootNode.left, "  ")
-
-        #     print(spacing, " False:")
-        #     self.printTree(rootNode.right, "  ")
-
-        # for i in range(len(leafNodes)):
-        #     node = leafNodes[i]
-        #     print("Node", i+1)
-
-        #     for label in node.index:
-        #         print("\t", label, "--->", node[label])
-
-    
-    
+                return self._classifyOneSample(row, node.right)
     
     
