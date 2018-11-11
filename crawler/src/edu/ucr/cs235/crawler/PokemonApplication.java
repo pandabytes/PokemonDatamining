@@ -20,13 +20,5 @@ public class PokemonApplication
     String html = crawler.getPageFromUrl(PokemonCrawler.PokemonBaseUrl + 
                                          "/List_of_Pok%C3%A9mon_by_National_Pok%C3%A9dex_number");
     crawler.scrapePokemonList(html);
-    
-    
-//  HashMap<String, Integer> stats = scrapeStats();
-////
-//Pokemon pokemon = new Pokemon(generation, pokedex, formName, types, null, 
-//                              genders[0], genders[1], height, weight,
-//                              category, eggGroups, 0, 0, 0, 0, 0, 0, 0);
   }
-
 }
