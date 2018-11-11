@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import threading
+from multiprocessing.pool import ThreadPool
 
 class TreeNode:
     ''' Base class for representing tree node'''
@@ -138,7 +139,7 @@ class DecisionTree:
         
     def train(self, dataFrame):
         ''' Train the decision tree with the given data frame input '''
-        self._trainedRootNode = self._buildTree(dataFrame)
+        self._trainedRootNode = self._buildTreeThread(dataFrame)
 
     def classify(self, dataFrame):
         ''' Classify the given data frame '''
@@ -161,6 +162,25 @@ class DecisionTree:
             else:
                 return self._classifyOneSample(row, node.right)
     
+    def _buildTreeThread(self, dataFrame):
+        ''' Build the trained decision tree using the multithreading. This creates 2 working thread.
+            Each one is responsible for the left and right branch of the tree 
+        '''
+        feature, featureValue, infoGain = self.findBestFeature(dataFrame)    
+        if (infoGain == 0):
+            return LeafNode(dataFrame[self._targetFeature].value_counts())
+
+        trueData, falseData = self.partition(dataFrame, feature, featureValue)
+
+        pool = ThreadPool(processes=2)
+        t1 = pool.apply_async(self._buildTree, (trueData,))
+        t2 = pool.apply_async(self._buildTree, (falseData,))
+
+        print("Wating for threads to complete")
+        t1.wait()
+        t2.wait()
+        return DecisionNode(t1.get(), t2.get(), feature, featureValue)
+
     def _buildTree(self, dataFrame):
         ''' Build the trained decision tree with the given data frame '''
         feature, featureValue, infoGain = self.findBestFeature(dataFrame)
