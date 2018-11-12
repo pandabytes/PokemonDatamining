@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-import threading
+import decorators as decor
 from multiprocessing.pool import ThreadPool
 
 class TreeNode:
@@ -137,6 +137,7 @@ class DecisionTree:
                     
         return bestFeature, bestFeatureValue, bestGain
         
+    @decor.elapsedTime
     def train(self, dataFrame):
         ''' Train the decision tree with the given data frame input '''
         self._trainedRootNode = self._buildTreeThread(dataFrame)
@@ -163,7 +164,7 @@ class DecisionTree:
                 return self._classifyOneSample(row, node.right)
     
     def _buildTreeThread(self, dataFrame):
-        ''' Build the trained decision tree using the multithreading. This creates 2 working thread.
+        ''' Build the trained decision tree using multithreading. This creates 2 working thread.
             Each one is responsible for the left and right branch of the tree 
         '''
         feature, featureValue, infoGain = self.findBestFeature(dataFrame)    
@@ -172,11 +173,12 @@ class DecisionTree:
 
         trueData, falseData = self.partition(dataFrame, feature, featureValue)
 
+        # Start the threads asynchronously
         pool = ThreadPool(processes=2)
         t1 = pool.apply_async(self._buildTree, (trueData,))
         t2 = pool.apply_async(self._buildTree, (falseData,))
 
-        print("Wating for threads to complete")
+        # Wating threads to complete
         t1.wait()
         t2.wait()
         return DecisionNode(t1.get(), t2.get(), feature, featureValue)
@@ -184,7 +186,6 @@ class DecisionTree:
     def _buildTree(self, dataFrame):
         ''' Build the trained decision tree with the given data frame '''
         feature, featureValue, infoGain = self.findBestFeature(dataFrame)
-        print("Best feature:", feature, "Best gain:", infoGain)
         if (infoGain == 0):
             return LeafNode(dataFrame[self._targetFeature].value_counts())
 

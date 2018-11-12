@@ -11,6 +11,7 @@ def splitData(dataFrame, trainingRatio):
     return training, test
 
 def computeError(predictions, actuals):
+    ''' '''
     assert len(predictions) == len(actuals), "Number of predictions and actuals must match"
     assert type(predictions) == type(actuals), "Type of predictions and actuals must match"
     misClassified = 0
@@ -20,6 +21,7 @@ def computeError(predictions, actuals):
     return 1 - ((len(actuals) - misClassified) / len(actuals))
 
 def buildConfusionMatrix(predictions, actuals, features):
+    ''' '''
     assert len(predictions) == len(actuals), "Number of predictions and actuals must match"
     assert type(predictions) == type(actuals), "Type of predictions and actuals must match"
     table = {}
@@ -37,7 +39,7 @@ def buildConfusionMatrix(predictions, actuals, features):
             matrix.loc[predictions[i], predictions[i]] += 1
         else:
             matrix.loc[actuals[i], predictions[i]] += 1
-        
+
     # Rename column names and row indeces for clarity
     renamedColumns = {}
     renamedRows = {}
@@ -60,6 +62,7 @@ def buildConfusionMatrix(predictions, actuals, features):
     return matrix
 
 def getPrecisionsAndRecalls(confusionMatrix, features):
+    ''' '''
     features.sort()
     precisions = {}
     recalls = {}
@@ -68,7 +71,11 @@ def getPrecisionsAndRecalls(confusionMatrix, features):
         index = "Actual " + feature
         column = "Predicted " + feature
         
-        precision = confusionMatrix.loc[index, column] / confusionMatrix.loc["Total", column]
+        # Handle the case where the classfier doesn't classify any data to a particular label
+        precision = 0
+        if (confusionMatrix.loc["Total", column] > 0):
+            precision = confusionMatrix.loc[index, column] / confusionMatrix.loc["Total", column]
+
         precisions[feature] = precision
         recall = confusionMatrix.loc[index, column] / confusionMatrix.loc[index, "Total"]
         recalls[feature] = recall
@@ -76,6 +83,7 @@ def getPrecisionsAndRecalls(confusionMatrix, features):
     return precisions, recalls
 
 def kFoldSample(k, dataFrame):
+    ''' '''
     subsetSize = int(len(dataFrame) / k)
     subsetSizes = (subsetSize, subsetSize + len(dataFrame) % k)    
     samples = []
@@ -90,15 +98,45 @@ def kFoldSample(k, dataFrame):
         samples.append(randomSample)
     return samples
 
-@decor.elapsedTime
-def kFoldCrossValidation(k, dataFrame, model):
+def kFoldCrossValidation(k, dataFrame):
+    ''' '''
     samples = kFoldSample(k, dataFrame)
-    accuracies = []
-    
-    for i in range(len(samples)):
-        test = samples[i]
-        training = dataFrame.drop(test.index)
-        model.train(training)
-        predictions = model.classify(test)
-        accuracies.append(1 - computeError(predictions, test[model.targetFeature]))
-    return accuracies
+    trainings = []
+    tests = []
+
+    # Each sample in the iteration is used as the test set. Get the training set by 
+    # taking the whole data frame minuses the data in the test set
+    for sample in samples:
+        trainings.append(dataFrame.drop(sample.index))
+        tests.append(sample)
+    return trainings, tests
+
+# def kFoldCrossValidationResult(k, dataFrame, model):
+#     ''' '''
+#     assert k >= 2, "k must be at least 2"
+#     errors = []
+#     kTrains, kTests = kFoldCrossValidation(k, dataFrame)
+
+#     for training, test in zip(kTrains, kTests):
+#         model.train(training)
+#         pred = model.classify(test)
+#         errors.append(computeError(pred, test[model.targetFeature]))
+
+#     return sum(errors) / len(errors)
+
+def computeFScores(precisions, recalls):
+    ''' '''
+    assert len(precisions) == len(recalls), "Length of precisions and recalls must match"
+    assert set(precisions.keys()) == set(recalls.keys()), "Precisions and recalls must have the same class labels"
+    fScores = {}
+
+    for label in precisions.keys():
+        p = precisions[label]
+        r = recalls[label]
+
+        # Don't include in the f score computation if p+r is 0
+        if (p + r > 0):
+            fScore = (2 * p * r) / (p + r)
+            fScores[label] = fScore
+
+    return sum(fScores.values()) / len(fScores)
