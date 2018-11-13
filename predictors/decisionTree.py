@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import decorators as decor
 from multiprocessing.pool import ThreadPool
+from model import SupervisedModel
 
 class TreeNode:
     ''' Base class for representing tree node'''
@@ -24,22 +25,14 @@ class LeafNode(TreeNode):
         super().__init__(None, None)
         self.prediction = prediction
 
-class DecisionTree:
+class DecisionTree(SupervisedModel):
     ''' Decision Tree classifiier. It takes a target feature as the predicted feature.
         It contains a reference to a TreeNode object after it is trained.
         Use Gini Impurity and build a binary tree
     '''
     def __init__(self, targetFeature):
-        self._targetFeature = targetFeature
+        super().__init__(targetFeature)
         self._trainedRootNode = None
-
-    @property
-    def targetFeature(self):
-        return self._targetFeature
-    
-    @targetFeature.setter
-    def data(self, value):
-        self._targetFeature = value
         
     def informationGain(self, left, right, currentImpurity):
         ''' Compute the information gain of the split '''
