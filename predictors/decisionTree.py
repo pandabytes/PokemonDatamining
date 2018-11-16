@@ -93,7 +93,7 @@ class DecisionTree(SupervisedModel):
         currentImpurity = self.giniImpurity(dataFrame)
         bestFeature = None
         bestFeatureValue = None
-        features = dataFrame.loc[:, dataFrame.columns != self._targetFeature].columns
+        features = dataFrame.loc[:, dataFrame.columns != self._targetFeature].columns.values
         
         for feature in features:
             if (dataFrame.dtypes[feature].type == np.int64 or dataFrame.dtypes[feature].type == np.float64):
