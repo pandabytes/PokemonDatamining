@@ -52,6 +52,8 @@ class NaiveBayes(SupervisedModel):
 		# 		break
 
 		# Need to handle zero probability
+		# Need to handle zero variance
+		# Need to see all possible feature values of each feature
 		for label in labelCounts.index:
 			labelDataFrame = dataFrame[dataFrame[self._targetFeature] == label]
 			for feature in features:
@@ -66,10 +68,15 @@ class NaiveBayes(SupervisedModel):
 					# raise NotImplementedError()
 					mean = labelDataFrame[feature].mean()
 					std = labelDataFrame[feature].std()
-					print(mean, std, 2 * (std**2) * math.pi)
+					#print(label, feature, mean, std, 2 * (std**2) * math.pi)
 					
+					# Skip zero standard deviation feature
+					if (std == 0.0):
+						continue
+
 					operand1 = (1 / (math.sqrt(2 * (std**2) * math.pi)))
 					for value in labelDataFrame[feature]:
+
 						operand2 = math.exp(-(value - mean)**2 / (2 * std**2))
 						probability = operand1 * operand2
 
