@@ -32,7 +32,6 @@ class NaiveBayes(SupervisedModel):
 	def _getConditionalProbabilities(self, dataFrame, labels):
 		''' '''
 		features = dataFrame.loc[:, dataFrame.columns != self._targetFeature].columns.values
-		#labelProbabilities = self._getLabelProbabilities(dataFrame)
 		featureValueMappings = self._getCategoricalFeatureMappings(dataFrame)
 		self._categoricalProbTable = pd.DataFrame(index=labels)
 		self._continuousProbTable = pd.DataFrame(index=labels)
@@ -48,29 +47,26 @@ class NaiveBayes(SupervisedModel):
 				if (featureType == "categorical"):
 					
 					laplacianValue = 0
-					containValuesSet = set(featureValueMappings[feature]) - set(labelDataFrame[feature].index)
-					if (len(containValuesSet) != 0):
-						# Do Laplacian smoothing
-						laplacianValue = 0
-						for value in containValuesSet:
-							
-					else:
-						# All feature values are in the training dataset
-						pass
+					totalSize = len(labelDataFrame) 
+					unseenValuesSet = set(featureValueMappings[feature]) - set(labelDataFrame[feature].unique())
+
+					# If there are unseen values, do Laplacian Correction. Else all feature values are in the training dataset
+					if (len(unseenValuesSet) > 0):
+						# Do Laplacian Correction. Increase the total size by each available value
+						laplacianValue = 1
+						totalSize += len(featureValueMappings[feature])
+						for value in unseenValuesSet:
+							columnName = "{0}={1}".format(feature, value)
+							probability = 1 / totalSize
+							self._categoricalProbTable.loc[label, columnName] = probability
+							#print("Label: {0} --- Unseen feature {1} --- value {2} --- prob 1/{3}".format(label, feature, value, totalSize))
 
 					valueCounts = labelDataFrame[feature].value_counts()
-					for value in featureValueMappings[feature]:
-						print("Feature {0} --- value {1}".format(feature, value))
-						if (value in valueCounts):
-							probability = valueCounts[value] / len(labelDataFrame)
+					for value in labelDataFrame[feature].values:
 						columnName = "{0}={1}".format(feature, value)
+						probability = (valueCounts[value] + laplacianValue) / totalSize
 						self._categoricalProbTable.loc[label, columnName] = probability
-						
-
-
-
-
-
+						#print("*** Label: {0} --- Feature {1} --- value {2} --- prob {3}/{4}".format(label, feature, value, valueCounts[value] + laplacianValue, totalSize))
 
 				elif (featureType == "continuous"):
 					mean = labelDataFrame[feature].mean()
@@ -79,12 +75,16 @@ class NaiveBayes(SupervisedModel):
 					# Skip zero standard deviation feature
 					# NaN values in continuous table means we don't include it when we compute the final probabilities
 					if (std != 0.0):
-						columnMean = "{0}=mean".format(feature)
-						columnStd = "{0}=std".format(feature)
+						columnMean = "{0} mean".format(feature)
+						columnStd = "{0} std".format(feature)
 						self._continuousProbTable.loc[label, columnMean] = mean
 						self._continuousProbTable.loc[label, columnStd] = std
 					else: print("****Skipping {0} feature for label {1}. Standard deviation = 0".format(feature, label))
 		
+		self._verifyProbabilities()
+
+
+	#def _getCategoricalConditionalProbabilities(self, labelDataFrame, )
 
 
 	@staticmethod
@@ -102,6 +102,15 @@ class NaiveBayes(SupervisedModel):
 				mappings[feature] = dataFrame[feature].unique()
 
 		return mappings
+
+	def _verifyProbabilities(self):
+		''' '''
+		for i in self._categoricalProbTable.index:
+			for j in self._categoricalProbTable.columns.values:
+				probability = self._categoricalProbTable.loc[i, j]
+				if (probability > 1) or (probability < 0):
+					raise ValueError("Probability needs be between 0 and 1. Row {0} - Column {1}".format(i, j))
+
 
 				
 
