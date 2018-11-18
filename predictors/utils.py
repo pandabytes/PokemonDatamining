@@ -2,11 +2,24 @@ import math
 import pandas as pd
 import decorators as decor
 
-def splitData(dataFrame, trainingRatio):
+def splitData(targetFeature, dataFrame, trainingRatio):
     ''' '''
+    labelValues = dataFrame[targetFeature].unique()
     trainingSize = math.floor(len(dataFrame) * trainingRatio)
     testSize = len(dataFrame) - trainingSize
+
+    # Ensure that the training data contains all label values
     training = dataFrame.sample(n=trainingSize, replace=False)
+    containAllLabels = False
+    while (not containAllLabels):
+        for labelValue in labelValues:
+            if (labelValue not in training[targetFeature].unique()):
+                containAllLabels = False
+                training = dataFrame.sample(n=trainingSize, replace=False)
+                break
+            else:
+                containAllLabels = True
+
     test = dataFrame.drop(training.index)
     return training, test
 

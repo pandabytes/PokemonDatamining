@@ -171,7 +171,7 @@ class DecisionTree(SupervisedModel):
         t1 = pool.apply_async(self._buildTree, (trueData,))
         t2 = pool.apply_async(self._buildTree, (falseData,))
 
-        # Wating threads to complete
+        # Waiting for threads to complete
         t1.wait()
         t2.wait()
         return DecisionNode(t1.get(), t2.get(), feature, featureValue)

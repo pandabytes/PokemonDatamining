@@ -16,11 +16,11 @@ class SupervisedModel:
     def data(self, value):
         self._targetFeature = value
 
-    def train(self, dataFrame):
+    def train(self, dataFrame, *args):
         ''' '''
         raise NotImplementedError("Method \"train\" not implemented")
 
-    def classify(self, dataFrame):
+    def classify(self, dataFrame, *args):
         ''' '''
         raise NotImplementedError("Method \"classify\" not implemented")
 
