@@ -47,13 +47,28 @@ class NaiveBayes(SupervisedModel):
 				featureType = super()._getFeatureType(dataFrame, feature)
 				if (featureType == "categorical"):
 					
-					#laplacianValue = 1 if (len(labelDataFrame) == 0) else 0
+					laplacianValue = 0
+					containValuesSet = set(featureValueMappings[feature]) - set(labelDataFrame[feature].index)
+					if (len(containValuesSet) != 0):
+						# Do Laplacian smoothing
+						laplacianValue = 0
+						for value in containValuesSet:
+							
+					else:
+						# All feature values are in the training dataset
+						pass
 
 					valueCounts = labelDataFrame[feature].value_counts()
-					for value in valueCounts.index:
-						probability = valueCounts[value] / len(labelDataFrame)
+					for value in featureValueMappings[feature]:
+						print("Feature {0} --- value {1}".format(feature, value))
+						if (value in valueCounts):
+							probability = valueCounts[value] / len(labelDataFrame)
 						columnName = "{0}={1}".format(feature, value)
 						self._categoricalProbTable.loc[label, columnName] = probability
+						
+
+
+
 
 
 
