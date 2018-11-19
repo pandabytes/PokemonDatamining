@@ -137,6 +137,7 @@ class DecisionTree(SupervisedModel):
 
     def classify(self, dataFrame):
         ''' Classify the given data frame '''
+        assert self._targetFeature not in dataFrame.columns.values, "Test data must not contain the target feature \"%s\"" % self._targetFeature
         result = {}
         for i, row in dataFrame.iterrows():
             result[i] = self._classifyOneSample(row, self._trainedRootNode)
