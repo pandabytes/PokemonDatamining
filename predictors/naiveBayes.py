@@ -63,7 +63,7 @@ class NaiveBayes(SupervisedModel):
 
                 predictProbabilities.append((label, probability))
 
-            bestLabel = max(predictProbabilities, key=lambda x: x[1])
+            bestLabel = max(predictProbabilities, key=lambda x: x[1])[0]
             result[index] = bestLabel
 
         return pd.Series(result)
@@ -128,7 +128,6 @@ class NaiveBayes(SupervisedModel):
                         columnStd = NaiveBayes.ColumnNameFormat.format(feature, "std")
                         self._continuousMeanStdTable.loc[label, columnMean] = mean
                         self._continuousMeanStdTable.loc[label, columnStd] = std
-                    else: print("****Skipping {0} feature for label {1}. Standard deviation = 0".format(feature, label))
         
         # Verify probability values are approriate
         self._verifyProbabilities()

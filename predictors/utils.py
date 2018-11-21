@@ -74,24 +74,24 @@ def buildConfusionMatrix(predictions, actuals, features):
     
     return matrix
 
-def getPrecisionsAndRecalls(confusionMatrix, features):
+def getPrecisionsAndRecalls(confusionMatrix, labels):
     ''' '''
-    features.sort()
+    labels.sort()
     precisions = {}
     recalls = {}
     
-    for feature in features:
-        index = "Actual " + feature
-        column = "Predicted " + feature
+    for label in labels:
+        index = "Actual " + label
+        column = "Predicted " + label
         
         # Handle the case where the classfier doesn't classify any data to a particular label
         precision = 0
         if (confusionMatrix.loc["Total", column] > 0):
             precision = confusionMatrix.loc[index, column] / confusionMatrix.loc["Total", column]
+        precisions[label] = precision
 
-        precisions[feature] = precision
         recall = confusionMatrix.loc[index, column] / confusionMatrix.loc[index, "Total"]
-        recalls[feature] = recall
+        recalls[label] = recall
         
     return precisions, recalls
 
@@ -148,8 +148,8 @@ def computeFScores(precisions, recalls):
         r = recalls[label]
 
         # Don't include in the f score computation if p+r is 0
-        if (p + r > 0):
-            fScore = (2 * p * r) / (p + r)
-            fScores[label] = fScore
+        #if (p + r > 0):
+        fScore = (2 * p * r) / (p + r)
+        fScores[label] = fScore
 
-    return sum(fScores.values()) / len(fScores)
+    return sum(fScores.values()) / len(fScores), fScores

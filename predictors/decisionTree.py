@@ -52,17 +52,15 @@ class DecisionTree(SupervisedModel):
     def partition(self, dataFrame, feature, value):
         ''' Partition the given data frame into 2 sub-data frames by the given feature and its value '''
         trueData, falseData = None, None
-        
-        if (dataFrame.dtypes[feature].type == np.int64 or dataFrame.dtypes[feature].type == np.float64):
+        featureType = super()._getFeatureType(dataFrame, feature)
+
+        if (featureType == "continous"):
             assert type(value) == int or type(value) == float, "Numeric feature must be passed with a numeric value"
             trueData, falseData = self.partitionContinuous(dataFrame, feature, value)
 
-        elif (dataFrame.dtypes[feature].type == np.object_):
+        elif (featureType == "categorical"):
             assert type(value) == str, "Categorical feature must be passed with a string value"
             trueData, falseData = self.partitionDiscreteBinary(dataFrame, feature, value)
-
-        else:
-            raise ValueError("Invalid feature %s type" % dataFrame.dtypes[feature].type)
             
         return trueData, falseData
     
@@ -96,7 +94,8 @@ class DecisionTree(SupervisedModel):
         features = dataFrame.loc[:, dataFrame.columns != self._targetFeature].columns.values
         
         for feature in features:
-            if (dataFrame.dtypes[feature].type == np.int64 or dataFrame.dtypes[feature].type == np.float64):
+            featureType = super()._getFeatureType(dataFrame, feature)
+            if (featureType == "continous"):
                 values = pd.Series([i for i in dataFrame[feature]])
                 quantileValues = values.quantile(quantiles, "linear")
 
@@ -104,6 +103,7 @@ class DecisionTree(SupervisedModel):
                 for quantileValue in quantileValues:
                     trueData, falseData = self.partition(dataFrame, feature, quantileValue)
 
+                    # If one of the splits has no elements, then the split is trivial
                     if (len(trueData) == 0 or len(falseData) == 0):
                         continue
                         
@@ -113,7 +113,7 @@ class DecisionTree(SupervisedModel):
                         bestFeature = feature
                         bestFeatureValue = quantileValue
 
-            elif (dataFrame.dtypes[feature].type == np.object_):
+            elif (featureType == "categorical"):
                 for featureValue in dataFrame[feature].unique():
                     trueData, falseData = self.partition(dataFrame, feature, featureValue)
                     
@@ -125,8 +125,6 @@ class DecisionTree(SupervisedModel):
                         bestGain = infoGain
                         bestFeature = feature
                         bestFeatureValue = featureValue
-            else:
-                raise ValueError("Invalid feature %s type" % dataFrame.dtypes[feature].type)
                     
         return bestFeature, bestFeatureValue, bestGain
         
@@ -146,7 +144,7 @@ class DecisionTree(SupervisedModel):
     def _classifyOneSample(self, row, node):
         ''' Classfiy one sample '''
         if (isinstance(node, LeafNode)):
-            return node.prediction.index[0]
+            return node.prediction
         else:
             # First check if the value type is numeric, then we do inequality check for numbers
             # If the value is not numeric then simply compare using ==
@@ -163,7 +161,7 @@ class DecisionTree(SupervisedModel):
         '''
         feature, featureValue, infoGain = self.findBestFeature(dataFrame)    
         if (infoGain == 0):
-            return LeafNode(dataFrame[self._targetFeature].value_counts())
+            return LeafNode(dataFrame[self._targetFeature].unique()[0])
 
         trueData, falseData = self.partition(dataFrame, feature, featureValue)
 
@@ -181,7 +179,7 @@ class DecisionTree(SupervisedModel):
         ''' Build the trained decision tree with the given data frame '''
         feature, featureValue, infoGain = self.findBestFeature(dataFrame)
         if (infoGain == 0):
-            return LeafNode(dataFrame[self._targetFeature].value_counts())
+            return LeafNode(dataFrame[self._targetFeature].unique()[0])
 
         trueData, falseData = self.partition(dataFrame, feature, featureValue)
 
