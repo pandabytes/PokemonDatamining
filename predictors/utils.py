@@ -76,7 +76,6 @@ def buildConfusionMatrix(predictions, actuals, features):
 
 def getPrecisionsAndRecalls(confusionMatrix, labels):
     ''' '''
-    labels.sort()
     precisions = {}
     recalls = {}
     
@@ -111,9 +110,65 @@ def kFoldSample(k, dataFrame):
         samples.append(randomSample)
     return samples
 
-def kFoldCrossValidation(k, dataFrame):
+def kFoldStratifiedSample(k, dataFrame, targetFeature):
     ''' '''
-    samples = kFoldSample(k, dataFrame)
+    labelMinSize = min(dataFrame[targetFeature].value_counts())
+    if (k > labelMinSize):
+        raise ValueError("k exceeds the label with the smallest number of data points")
+        
+    samples = []
+    labelCounts = dataFrame[targetFeature].value_counts()
+
+    # Compute the size of each label for each k fold
+    labelSampleSizes = {}
+    for label in labelCounts.index:
+        labelSampleSizes[label] = math.floor(labelCounts[label] / k)
+
+    # Run through each k-fold to partition the data
+    for kIter in range(k):
+        randomSample = pd.DataFrame()
+        
+        # If it's the last iteration then simply include all the remaining data
+        if (kIter == k - 1):
+            randomSample = pd.concat([randomSample, dataFrame])
+        else:
+            # Get a small portion from each label by taking the total number of 
+            # data belonging to a label and divide it by k
+            for label in labelCounts.index:
+                labelDataFrame = dataFrame[dataFrame[targetFeature] == label]
+                labelSample = labelDataFrame.sample(n=labelSampleSizes[label], replace=False)
+
+                # Aggregate to the current sample
+                randomSample = pd.concat([randomSample, labelSample])
+                dataFrame = dataFrame.drop(labelSample.index)
+
+        samples.append(randomSample)
+    return samples
+
+    # subsetSize = int(len(dataFrame) / k)
+    # subsetSizes = (subsetSize, subsetSize + len(dataFrame) % k)    
+    # samples = []
+
+    # for i in range(k):
+    #     randomSample = None
+    #     if (i < k - 1):
+    #         randomSample = dataFrame.sample(n=subsetSizes[0], replace=False)
+    #     else:
+    #         randomSample = dataFrame.sample(n=subsetSizes[1], replace=False)
+    #     dataFrame = dataFrame.drop(randomSample.index)
+    #     samples.append(randomSample)
+    # return samples
+
+def kFoldCrossValidation(k, dataFrame, stratified=False, targetFeature=None):
+    ''' '''
+    if (stratified):
+        if (targetFeature != None):
+            samples = kFoldStratifiedSample(k, dataFrame, targetFeature)
+        else:
+            raise ValueError("Target feature must be supplemented when stratified sample is specified")
+    else:
+        samples = kFoldSample(k, dataFrame)
+
     trainings = []
     tests = []
 
