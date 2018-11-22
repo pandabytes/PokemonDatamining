@@ -2,7 +2,7 @@ import math
 import numpy as np
 import pandas as pd
 import decorators as decor
-from model import SupervisedModel
+from model import SupervisedModel, FeatureType
 
 class NaiveBayes(SupervisedModel):
     ''' '''
@@ -34,7 +34,7 @@ class NaiveBayes(SupervisedModel):
 
             for label, labelProbability in self._labelProbabilities.items():
                 # Transform probability to log space to deal with underflow problem
-                probability = math.log(labelProbability)
+                logProbability = math.log(labelProbability)
 
                 for feature in dataFrame.columns.values:
                     featureType = super()._getFeatureType(dataFrame, feature)
@@ -44,7 +44,7 @@ class NaiveBayes(SupervisedModel):
 
                         # Ignore unseen value and continue to use other probabilities
                         if (columnName in columnValues):
-                            probability += math.log(self._categoricalProbTable.loc[label, columnName])
+                            logProbability += math.log(self._categoricalProbTable.loc[label, columnName])
                     
                     elif (featureType == "continuous"):
                         columnMean = NaiveBayes.ColumnNameFormat.format(feature, "mean")
@@ -59,12 +59,14 @@ class NaiveBayes(SupervisedModel):
                                 # Ignore any 0 or near-0 probability. Not worth considering
                                 gaussianProb = self._getGaussianProbability(row[feature], mean, std)
                                 if (gaussianProb > 0):
-                                    probability += math.log(gaussianProb)
+                                    logProbability += math.log(gaussianProb)
 
-                predictProbabilities.append((label, probability))
+                predictProbabilities.append((label, logProbability))
 
-            bestLabel = max(predictProbabilities, key=lambda x: x[1])[0]
-            result[index] = bestLabel
+            # Sort by the log probability value in tuple
+            bestLabel, bestLogProbability = max(predictProbabilities, key=lambda x: x[1])
+            probability = math.exp(bestLogProbability)
+            result[index] = (bestLabel, probability)
 
         return pd.Series(result)
 
@@ -83,10 +85,6 @@ class NaiveBayes(SupervisedModel):
         self._categoricalProbTable = pd.DataFrame(index=labels)
         self._continuousMeanStdTable = pd.DataFrame(index=labels)
 
-        # Need to handle zero probability
-        # Need to handle zero standard deviation
-        # Need to see all possible feature values of each feature
-        # Ignore unseen feature values and use other feature values to compute the posterior probabilities
         for label in labels:
             labelDataFrame = dataFrame[dataFrame[self._targetFeature] == label]
             for feature in features:
@@ -120,9 +118,8 @@ class NaiveBayes(SupervisedModel):
                     mean = labelDataFrame[feature].mean()
                     std = labelDataFrame[feature].std()
                     
-                    # Skip zero standard deviation feature
-                    # NaN values in continuous table means we don't 
-                    # include it when we compute the final probabilities
+                    # Skip zero standard deviation feature. NaN values in continuous table means 
+                    # we don't include it when we compute the final probabilities.
                     if (std != 0.0):
                         columnMean = NaiveBayes.ColumnNameFormat.format(feature, "mean")
                         columnStd = NaiveBayes.ColumnNameFormat.format(feature, "std")

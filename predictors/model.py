@@ -1,5 +1,10 @@
 import numpy as np
 
+class FeatureType:
+    Categorical = 0
+    Continuous = 1
+    Boolean = 2
+
 class SupervisedModel:
     ''' Model the abstract base class structure but this class can still
         be instanitiated. Abstract methods throw an exception if 
@@ -28,10 +33,10 @@ class SupervisedModel:
         ''' '''
         featureType = dataFrame.dtypes[feature].type
         if (featureType == np.int64 or featureType == np.float64):
-            return "continuous"
+            return FeatureType.Continuous
         elif (featureType== np.object_):
-            return "categorical"
+            return FeatureType.Categorical
         elif (featureType == np.object_):
-            return "boolean"
+            return FeatureType.Boolean
         else:
             raise ValueError("Invalid feature %s type" % featureType)

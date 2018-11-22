@@ -94,6 +94,29 @@ def getPrecisionsAndRecalls(confusionMatrix, labels):
         
     return precisions, recalls
 
+def getSensitivityAndSpecifiicy(confusionMatrix, labels):
+    ''' '''
+    sensitivies = {}
+    specificities = {}
+
+    for label in labels:
+        index = "Actual " + label
+        column = "Predicted " + label
+
+        sensitivity = confusionMatrix.loc[index, column] / confusionMatrix.loc[index, "Total"]
+        specificity = 0
+        sumOtherLabels = 0
+        for otherLabel in labels:
+            if (otherLabel != label):
+                specificity += confusionMatrix.loc["Actual " + otherLabel, "Predicted " + otherLabel]
+                sumOtherLabels += confusionMatrix.loc["Actual " + otherLabel, "Total"]
+        specificity /= sumOtherLabels
+
+        sensitivies[label] = sensitivity
+        specificities[label] = specificity
+
+    return sensitivies, specificities     
+
 def kFoldSample(k, dataFrame):
     ''' '''
     subsetSize = int(len(dataFrame) / k)
@@ -145,20 +168,6 @@ def kFoldStratifiedSample(k, dataFrame, targetFeature):
         samples.append(randomSample)
     return samples
 
-    # subsetSize = int(len(dataFrame) / k)
-    # subsetSizes = (subsetSize, subsetSize + len(dataFrame) % k)    
-    # samples = []
-
-    # for i in range(k):
-    #     randomSample = None
-    #     if (i < k - 1):
-    #         randomSample = dataFrame.sample(n=subsetSizes[0], replace=False)
-    #     else:
-    #         randomSample = dataFrame.sample(n=subsetSizes[1], replace=False)
-    #     dataFrame = dataFrame.drop(randomSample.index)
-    #     samples.append(randomSample)
-    # return samples
-
 def kFoldCrossValidation(k, dataFrame, stratified=False, targetFeature=None):
     ''' '''
     if (stratified):
@@ -203,8 +212,10 @@ def computeFScores(precisions, recalls):
         r = recalls[label]
 
         # Don't include in the f score computation if p+r is 0
-        #if (p + r > 0):
-        fScore = (2 * p * r) / (p + r)
-        fScores[label] = fScore
+        if (p + r > 0):
+            fScore = (2 * p * r) / (p + r)
+            fScores[label] = fScore
+        else:
+            fScores[label] = 0
 
     return sum(fScores.values()) / len(fScores), fScores
