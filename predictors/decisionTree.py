@@ -163,12 +163,13 @@ class DecisionTree(SupervisedModel):
     def classify(self, dataFrame):
         ''' Classify the given data frame '''
         assert self._targetFeature not in dataFrame.columns.values, "Test data must not contain the target feature \"%s\"" % self._targetFeature
-        result = {}
+        predictions = []
+        indices = []
         for i, row in dataFrame.iterrows():
             prediction = self._classifyOneSample(row, self._trainedRootNode)
-            result[i] = prediction
-            pass
-        return pd.Series(result)
+            predictions.append(prediction)
+            indices.append(i)
+        return pd.Series(predictions, index=indices)
 
     def _classifyOneSample(self, row, node):
         ''' Classfiy one sample '''

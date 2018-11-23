@@ -1,6 +1,7 @@
 import math
 import pandas as pd
 import decorators as decor
+import numpy as np
 
 def splitData(targetFeature, dataFrame, trainingRatio):
     ''' '''
@@ -9,7 +10,7 @@ def splitData(targetFeature, dataFrame, trainingRatio):
     testSize = len(dataFrame) - trainingSize
 
     # Ensure that the training data contains all label values
-    training = dataFrame.sample(n=trainingSize, replace=False)
+    training = dataFrame.sample(n=trainingSize, replace=False, random_state=np.random.RandomState())
     containAllLabels = False
     while (not containAllLabels):
         for labelValue in labelValues:
@@ -23,51 +24,63 @@ def splitData(targetFeature, dataFrame, trainingRatio):
     test = dataFrame.drop(training.index)
     return training, test
 
+def injectMinoritySample(minLabels, target, dataFrame):
+    ''' '''
+    total = len(dataFrame) 
+    maxSizeLabel = dataFrame[target].value_counts().max()
+    ratio = dataFrame[target].value_counts().max() / float(total)
+    sizePerLabel = int(len(dataFrame) / float(len(dataFrame[target].unique())))
+    result = dataFrame
+
+    for label in minLabels:
+        labelDataFrame = result[result[target] == label]
+        labelSize = len(labelDataFrame)
+
+        #while (len(labelDataFrame) < sizePerLabel):
+        while (len(labelDataFrame) < maxSizeLabel):
+            result = result.append(labelDataFrame.sample(labelSize), ignore_index=True)
+            labelDataFrame = result[result[target] == label]
+        print(label, len(labelDataFrame))
+
+    return result
+
 def computeError(predictions, actuals):
     ''' '''
     assert len(predictions) == len(actuals), "Number of predictions and actuals must match"
     assert type(predictions) == type(actuals), "Type of predictions and actuals must match"
     misClassified = 0
     for i in predictions.index:
-        if (predictions[i] != actuals[i]):
+        if (predictions[i][0] != actuals[i]):
             misClassified += 1
     return 1 - ((len(actuals) - misClassified) / len(actuals))
 
-def buildConfusionMatrix(predictions, actuals, features):
+def buildConfusionMatrix(predictions, actuals, labels):
     ''' '''
     assert len(predictions) == len(actuals), "Number of predictions and actuals must match"
     assert type(predictions) == type(actuals), "Type of predictions and actuals must match"
     table = {}
-    features.sort()
+    labels.sort()
     
     # Initialize the table with column header and cell values with 0
-    for feature in features:
-        table[feature] = [0 for i in range(len(features))]
+    for label in labels:
+        table["Predicted " + label] = [0 for i in range(len(labels))]
     
-    matrix = pd.DataFrame(data=table, index=features)
+    matrix = pd.DataFrame(data=table, index=list(map(lambda x: "Actual " + x, labels)))
     
     # Count the misclassifications
     for i in predictions.index:
-        if (predictions[i] == actuals[i]):
-            matrix.loc[predictions[i], predictions[i]] += 1
+        if (predictions[i][0] == actuals[i]):
+            matrix.loc["Actual " + predictions[i][0], "Predicted " + predictions[i][0]] += 1
         else:
-            matrix.loc[actuals[i], predictions[i]] += 1
-
-    # Rename column names and row indeces for clarity
-    renamedColumns = {}
-    renamedRows = {}
-    for feature in features:
-        renamedColumns[feature] = "Predicted " + feature
-        renamedRows[feature] = "Actual " + feature
-    matrix.rename(columns=renamedColumns, index=renamedRows, inplace=True)
+            matrix.loc["Actual " + actuals[i], "Predicted " + predictions[i][0]] += 1
     
     # Add Total column and Total index
-    matrix["Total"] = pd.Series([0 for i in range(len(features))], index=matrix.index)
+    matrix["Total"] = pd.Series([0 for i in range(len(labels))], index=matrix.index)
     matrix.loc["Total"] = [0 for i in range(len(matrix.columns))]
     
     # Sum the Total values
-    for feature in features:
-        matrix.loc["Total", "Predicted " + feature] = matrix["Predicted " + feature].sum()
+    for label in labels:
+        matrix.loc["Total", "Predicted " + label] = matrix["Predicted " + label].sum()
         
     for i in matrix.index:
         matrix.loc[i, "Total"] = matrix.loc[i].sum()

@@ -27,7 +27,8 @@ class NaiveBayes(SupervisedModel):
     def classify(self, dataFrame):
         ''' '''
         assert self._targetFeature not in dataFrame.columns.values, "Test data must not contain the target feature \"%s\"" % self._targetFeature
-        result = {}
+        predictions = []
+        indices = []
 
         for index, row in dataFrame.iterrows():
             predictProbabilities = []
@@ -38,7 +39,7 @@ class NaiveBayes(SupervisedModel):
 
                 for feature in dataFrame.columns.values:
                     featureType = super()._getFeatureType(dataFrame, feature)
-                    if (featureType == "categorical"):
+                    if (featureType == FeatureType.Categorical):
                         columnName = NaiveBayes.ColumnNameFormat.format(feature, row[feature])
                         columnValues = self._categoricalProbTable.columns.values
 
@@ -46,7 +47,7 @@ class NaiveBayes(SupervisedModel):
                         if (columnName in columnValues):
                             logProbability += math.log(self._categoricalProbTable.loc[label, columnName])
                     
-                    elif (featureType == "continuous"):
+                    elif (featureType == FeatureType.Continuous):
                         columnMean = NaiveBayes.ColumnNameFormat.format(feature, "mean")
                         columnStd = NaiveBayes.ColumnNameFormat.format(feature, "std")
                         columnValues = self._continuousMeanStdTable.columns.values
@@ -66,9 +67,10 @@ class NaiveBayes(SupervisedModel):
             # Sort by the log probability value in tuple
             bestLabel, bestLogProbability = max(predictProbabilities, key=lambda x: x[1])
             probability = math.exp(bestLogProbability)
-            result[index] = (bestLabel, probability)
+            predictions.append((bestLabel, probability))
+            indices.append(index)
 
-        return pd.Series(result)
+        return pd.Series(predictions, index=indices)
 
     def _computeLabelProbabilities(self, dataFrame):
         ''' '''
@@ -90,7 +92,7 @@ class NaiveBayes(SupervisedModel):
             for feature in features:
                 featureType = super()._getFeatureType(dataFrame, feature)
 
-                if (featureType == "categorical"):
+                if (featureType == FeatureType.Categorical):
                     
                     laplacianValue = 0
                     totalSize = len(labelDataFrame) 
@@ -114,7 +116,7 @@ class NaiveBayes(SupervisedModel):
                         probability = (valueCounts[value] + laplacianValue) / totalSize
                         self._categoricalProbTable.loc[label, columnName] = probability
 
-                elif (featureType == "continuous"):
+                elif (featureType == FeatureType.Continuous):
                     mean = labelDataFrame[feature].mean()
                     std = labelDataFrame[feature].std()
                     
@@ -139,7 +141,7 @@ class NaiveBayes(SupervisedModel):
         features = dataFrame.loc[:, dataFrame.columns != self._targetFeature].columns.values
         for feature in features:
             featureType = super()._getFeatureType(dataFrame, feature)
-            if (featureType == "categorical"):
+            if (featureType == FeatureType.Categorical):
                 mappings[feature] = dataFrame[feature].unique()
 
         return mappings
