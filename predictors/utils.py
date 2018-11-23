@@ -183,6 +183,7 @@ def kFoldStratifiedSample(k, dataFrame, targetFeature):
 
 def kFoldCrossValidation(k, dataFrame, stratified=False, targetFeature=None):
     ''' '''
+    assert k > 1, "k value must be at least 2"
     if (stratified):
         if (targetFeature != None):
             samples = kFoldStratifiedSample(k, dataFrame, targetFeature)
@@ -201,18 +202,21 @@ def kFoldCrossValidation(k, dataFrame, stratified=False, targetFeature=None):
         tests.append(sample)
     return trainings, tests
 
-# def kFoldCrossValidationResult(k, dataFrame, model):
-#     ''' '''
-#     assert k >= 2, "k must be at least 2"
-#     errors = []
-#     kTrains, kTests = kFoldCrossValidation(k, dataFrame)
+def kFoldCrossValidationResult(kFolds, targetFeature, dataFrame, model):
+    ''' '''
+    assert kFolds >= 2, "kFolds must be at least 2"
+    result = []
 
-#     for training, test in zip(kTrains, kTests):
-#         model.train(training)
-#         pred = model.classify(test)
-#         errors.append(computeError(pred, test[model.targetFeature]))
+    for k in range(2, kFolds + 1):
+        kTrainings, kTests = kFoldCrossValidation(k, dataFrame, True, targetFeature)
+        result.append([])
 
-#     return sum(errors) / len(errors)
+        for kTrain, kTest in zip(kTrainings, kTests):
+            model.train(kTrain)
+            kPred = model.classify(kTest.drop([targetFeature], axis=1))
+            error = computeError(kPred, kTest["Group"])
+            result[k-2].append(error)
+    return result
 
 def computeFScores(precisions, recalls):
     ''' '''

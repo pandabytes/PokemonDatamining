@@ -10,18 +10,19 @@ class NaiveBayes(SupervisedModel):
     # Static variable
     ColumnNameFormat = "{0}={1}"
 
-    def __init__(self, targetFeature):
+    def __init__(self, targetFeature, allLabels):
         ''' '''
         super().__init__(targetFeature)
         self._labelProbabilities = None
         self._categoricalProbTable = None
         self._continuousMeanStdTable = None
+        self._allLabels = allLabels
 
     @decor.elapsedTime
-    def train(self, dataFrame, labels):
+    def train(self, dataFrame):
         ''' '''
         self._computeLabelProbabilities(dataFrame)
-        self._computeConditionalProbabilities(dataFrame, labels)
+        self._computeConditionalProbabilities(dataFrame, self._allLabels)
 
     @decor.elapsedTime
     def classify(self, dataFrame):
