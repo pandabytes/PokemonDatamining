@@ -10,8 +10,9 @@ class SupervisedModel:
         be instanitiated. Abstract methods throw an exception if 
         they are not overriden.
     '''
-    def __init__(self, targetFeature):
+    def __init__(self, targetFeature, probThresholds=None):
         self._targetFeature = targetFeature
+        self._probThresholds = probThresholds
 
     @property
     def targetFeature(self):
@@ -21,11 +22,11 @@ class SupervisedModel:
     def data(self, value):
         self._targetFeature = value
 
-    def train(self, dataFrame, *args):
+    def train(self, dataFrame, **kwargs):
         ''' '''
         raise NotImplementedError("Method \"train\" not implemented")
 
-    def classify(self, dataFrame, *args):
+    def classify(self, dataFrame, **kwargs):
         ''' '''
         raise NotImplementedError("Method \"classify\" not implemented")
 

@@ -33,8 +33,8 @@ class DecisionTree(SupervisedModel):
 
         This class uses the example from here as a base https://github.com/random-forests/tutorials/blob/master/decision_tree.ipynb
     '''
-    def __init__(self, targetFeature, maxDepth=3):
-        super().__init__(targetFeature)
+    def __init__(self, targetFeature, maxDepth=3, probThresholds=None):
+        super().__init__(targetFeature, probThresholds)
         self._trainedRootNode = None
         self._maxDepth = maxDepth
         
@@ -134,15 +134,15 @@ class DecisionTree(SupervisedModel):
         return bestFeature, bestFeatureValue, bestGain
         
     def countLeafNodes(self):
-        ''' '''
+        ''' Return the number of leaf nodes in the tree '''
         return self._countLeafNodes(self._trainedRootNode)
 
-    def countTreeDepth(self):
-        ''' '''
+    def getTreeDepth(self):
+        ''' Return the depth of the tree '''
         return self._countTreeDepth(self._trainedRootNode)
 
-    def _countLeafNodes(self, node):
-        ''' '''
+    def _getLeafNodes(self, node):
+        ''' Helper function for counting leaf nodes '''
         if (isinstance(node, LeafNode)):
             print(node.prediction, "\n")
             return 1
@@ -150,26 +150,29 @@ class DecisionTree(SupervisedModel):
             return self._countLeafNodes(node.left) + self._countLeafNodes(node.right)
 
     def _countTreeDepth(self, node):
+        ''' Helper function for counting the tree depth '''
         if (node.left == None and node.right == None):
             return 0
         else:
             return 1 + max(self._countTreeDepth(node.left), self._countTreeDepth(node.right))
 
     @decor.elapsedTime
-    def train(self, dataFrame):
+    def train(self, dataFrame, **kwargs):
         ''' Train the decision tree with the given data frame input '''
         self._trainedRootNode = self._buildTree(dataFrame, 0)
 
-    def classify(self, dataFrame):
+    def classify(self, dataFrame, **kwargs):
         ''' Classify the given data frame '''
         assert self._targetFeature not in dataFrame.columns.values, "Test data must not contain the target feature \"%s\"" % self._targetFeature
         predictions = []
+        probabilities = []
         indices = []
         for i, row in dataFrame.iterrows():
-            prediction = self._classifyOneSample(row, self._trainedRootNode)
+            prediction, probability = self._classifyOneSample(row, self._trainedRootNode)
             predictions.append(prediction)
+            probabilities.append(probability)
             indices.append(i)
-        return pd.Series(predictions, index=indices)
+        return pd.DataFrame({"Prediction": predictions, "Probability": probabilities}, index=indices)
 
     def _classifyOneSample(self, row, node):
         ''' Classfiy one sample '''
@@ -210,15 +213,19 @@ class DecisionTree(SupervisedModel):
     def _buildTree(self, dataFrame, depth):
         ''' Build the trained decision tree with the given data frame '''
         predictionCount = dataFrame[self._targetFeature].value_counts()
-        bestLabel, count = max(predictionCount.items(), key=lambda x: x[1])
 
         # Stop splitting once the max depth of the tree is reached
         if (depth >= self._maxDepth):
-            return LeafNode(prediction=bestLabel, probability=count / predictionCount.sum())
+            labelProbs = self._computeLabelProbs(predictionCount)
+            bestLabel, bestProb = max(labelProbs.items(), key=lambda x: x[1])
+            return LeafNode(prediction=bestLabel, probability=bestProb)
 
+        # Stop splitting if there's no more information to gain
         feature, featureValue, infoGain = self.findBestFeature(dataFrame)
         if (infoGain == 0):
-            return LeafNode(prediction=bestLabel, probability=count / predictionCount.sum())
+            labelProbs = self._computeLabelProbs(predictionCount)
+            bestLabel, bestProb = max(labelProbs.items(), key=lambda x: x[1])
+            return LeafNode(prediction=bestLabel, probability=bestProb)
 
         leftData, rightData = self.partition(dataFrame, feature, featureValue)
 
@@ -227,3 +234,9 @@ class DecisionTree(SupervisedModel):
 
         return DecisionNode(left, right, feature, featureValue)
     
+    def _computeLabelProbs(self, predictionCount):
+        ''' '''
+        labelProbs = predictionCount / predictionCount.sum()
+        if (self._probThresholds is not None):
+            labelProbs *= self._probThresholds
+        return labelProbs

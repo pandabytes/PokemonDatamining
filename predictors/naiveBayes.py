@@ -19,16 +19,17 @@ class NaiveBayes(SupervisedModel):
         self._allLabels = allLabels
 
     @decor.elapsedTime
-    def train(self, dataFrame):
+    def train(self, dataFrame, **kwargs):
         ''' '''
         self._computeLabelProbabilities(dataFrame)
-        self._computeConditionalProbabilities(dataFrame, self._allLabels)
+        self._computeConditionalProbabilities(dataFrame)
 
     @decor.elapsedTime
-    def classify(self, dataFrame):
+    def classify(self, dataFrame, **kwargs):
         ''' '''
         assert self._targetFeature not in dataFrame.columns.values, "Test data must not contain the target feature \"%s\"" % self._targetFeature
         predictions = []
+        probabilities = []
         indices = []
 
         for index, row in dataFrame.iterrows():
@@ -65,13 +66,15 @@ class NaiveBayes(SupervisedModel):
 
                 predictProbabilities.append((label, logProbability))
 
-            # Sort by the log probability value in tuple
+            # Sort by the log probability value stored in tuple
+            # Convert the log probability to normal probability
             bestLabel, bestLogProbability = max(predictProbabilities, key=lambda x: x[1])
             probability = math.exp(bestLogProbability)
-            predictions.append((bestLabel, probability))
+            predictions.append(bestLabel)
+            probabilities.append(probability)
             indices.append(index)
 
-        return pd.Series(predictions, index=indices)
+        return pd.DataFrame({"Prediction": predictions, "Probability": probabilities}, index=indices)
 
     def _computeLabelProbabilities(self, dataFrame):
         ''' '''
@@ -81,14 +84,14 @@ class NaiveBayes(SupervisedModel):
             self._labelProbabilities[i] = labelCounts[i] / len(dataFrame)
         
 
-    def _computeConditionalProbabilities(self, dataFrame, labels):
+    def _computeConditionalProbabilities(self, dataFrame):
         ''' '''
         features = dataFrame.loc[:, dataFrame.columns != self._targetFeature].columns.values
         featureValueMappings = self._getCategoricalFeatureMappings(dataFrame)
-        self._categoricalProbTable = pd.DataFrame(index=labels)
-        self._continuousMeanStdTable = pd.DataFrame(index=labels)
+        self._categoricalProbTable = pd.DataFrame(index=self._allLabels)
+        self._continuousMeanStdTable = pd.DataFrame(index=self._allLabels)
 
-        for label in labels:
+        for label in self._allLabels:
             labelDataFrame = dataFrame[dataFrame[self._targetFeature] == label]
             for feature in features:
                 featureType = super()._getFeatureType(dataFrame, feature)

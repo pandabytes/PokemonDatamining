@@ -4,28 +4,31 @@ import decorators as decor
 import numpy as np
 
 def splitData(targetFeature, dataFrame, trainingRatio):
-    ''' '''
+    ''' Split data into training and test set '''
+
     labelValues = dataFrame[targetFeature].unique()
     trainingSize = math.floor(len(dataFrame) * trainingRatio)
     testSize = len(dataFrame) - trainingSize
 
-    # Ensure that the training data contains all label values
+    # Ensure that the training and test contain all label values
     training = dataFrame.sample(n=trainingSize, replace=False, random_state=np.random.RandomState())
+    test = dataFrame.drop(training.index)
     containAllLabels = False
     while (not containAllLabels):
         for labelValue in labelValues:
-            if (labelValue not in training[targetFeature].unique()):
+            if (labelValue not in training[targetFeature].unique() or labelValue not in test[targetFeature].unique()):
                 containAllLabels = False
                 training = dataFrame.sample(n=trainingSize, replace=False)
                 break
             else:
                 containAllLabels = True
+                test = dataFrame.drop(training.index)
 
-    test = dataFrame.drop(training.index)
     return training, test
 
 def injectMinoritySample(minLabels, target, dataFrame):
-    ''' '''
+    ''' Inject fake minority samples to the data '''
+
     total = len(dataFrame) 
     maxSizeLabel = dataFrame[target].value_counts().max()
     ratio = dataFrame[target].value_counts().max() / float(total)
@@ -45,17 +48,17 @@ def injectMinoritySample(minLabels, target, dataFrame):
     return result
 
 def computeError(predictions, actuals):
-    ''' '''
+    ''' Compute the % of misclassification of the prediction '''
     assert len(predictions) == len(actuals), "Number of predictions and actuals must match"
     assert type(predictions) == type(actuals), "Type of predictions and actuals must match"
     misClassified = 0
     for i in predictions.index:
-        if (predictions[i][0] != actuals[i]):
+        if (predictions[i] != actuals[i]):
             misClassified += 1
     return 1 - ((len(actuals) - misClassified) / len(actuals))
 
 def buildConfusionMatrix(predictions, actuals, labels):
-    ''' '''
+    ''' Build the confusion matrix '''
     assert len(predictions) == len(actuals), "Number of predictions and actuals must match"
     assert type(predictions) == type(actuals), "Type of predictions and actuals must match"
     table = {}
@@ -70,9 +73,9 @@ def buildConfusionMatrix(predictions, actuals, labels):
     # Count the misclassifications
     for i in predictions.index:
         if (predictions[i][0] == actuals[i]):
-            matrix.loc["Actual " + predictions[i][0], "Predicted " + predictions[i][0]] += 1
+            matrix.loc["Actual " + predictions[i], "Predicted " + predictions[i]] += 1
         else:
-            matrix.loc["Actual " + actuals[i], "Predicted " + predictions[i][0]] += 1
+            matrix.loc["Actual " + actuals[i], "Predicted " + predictions[i]] += 1
     
     # Add Total column and Total index
     matrix["Total"] = pd.Series([0 for i in range(len(labels))], index=matrix.index)
@@ -88,7 +91,7 @@ def buildConfusionMatrix(predictions, actuals, labels):
     return matrix
 
 def getPrecisionsAndRecalls(confusionMatrix, labels):
-    ''' '''
+    ''' Get precision and recall values '''
     precisions = {}
     recalls = {}
     
@@ -108,7 +111,7 @@ def getPrecisionsAndRecalls(confusionMatrix, labels):
     return precisions, recalls
 
 def getSensitivityAndSpecifiicy(confusionMatrix, labels):
-    ''' '''
+    ''' Get sensitivity and specificity values '''
     sensitivies = {}
     specificities = {}
 
@@ -131,7 +134,7 @@ def getSensitivityAndSpecifiicy(confusionMatrix, labels):
     return sensitivies, specificities     
 
 def kFoldSample(k, dataFrame):
-    ''' '''
+    ''' Parition the data into k fold samples '''
     subsetSize = int(len(dataFrame) / k)
     subsetSizes = (subsetSize, subsetSize + len(dataFrame) % k)    
     samples = []
@@ -147,10 +150,11 @@ def kFoldSample(k, dataFrame):
     return samples
 
 def kFoldStratifiedSample(k, dataFrame, targetFeature):
-    ''' '''
+    ''' Partition the given data into k stratified sample '''
     labelMinSize = min(dataFrame[targetFeature].value_counts())
     if (k > labelMinSize):
-        raise ValueError("k exceeds the label with the smallest number of data points")
+        raise ValueError("k exceeds the label with the smallest number of data points. " + \
+                         "k={0}, smallest # of data points of a label={1}".format(k, labelMinSize))
         
     samples = []
     labelCounts = dataFrame[targetFeature].value_counts()
@@ -182,7 +186,7 @@ def kFoldStratifiedSample(k, dataFrame, targetFeature):
     return samples
 
 def kFoldCrossValidation(k, dataFrame, stratified=False, targetFeature=None):
-    ''' '''
+    ''' Return 2 lists of training and test of k cross validation '''
     assert k > 1, "k value must be at least 2"
     if (stratified):
         if (targetFeature != None):
@@ -203,23 +207,28 @@ def kFoldCrossValidation(k, dataFrame, stratified=False, targetFeature=None):
     return trainings, tests
 
 def kFoldCrossValidationResult(kFolds, targetFeature, dataFrame, model):
-    ''' '''
+    ''' Given k, perform k cross validation on the given model '''
     assert kFolds >= 2, "kFolds must be at least 2"
     result = []
 
-    for k in range(2, kFolds + 1):
-        kTrainings, kTests = kFoldCrossValidation(k, dataFrame, True, targetFeature)
-        result.append([])
+    try:
+        for k in range(2, kFolds + 1):
+            kTrainings, kTests = kFoldCrossValidation(k, dataFrame, True, targetFeature)
+            result.append([])
+            print("k = ", k)
+            for kTrain, kTest in zip(kTrainings, kTests):
+                model.train(kTrain, quiet=True)
+                kPred = model.classify(kTest.drop([targetFeature], axis=1), quiet=True)
+                error = computeError(kPred, kTest["Group"])
+                result[k-2].append(error)
+    except ValueError as ex:
+        #print("Warning: k={0} exceeds {1}, which is the minimum # of data points a label. Return early...".format(k))
+        print(str(ex) + ". Return early...")
 
-        for kTrain, kTest in zip(kTrainings, kTests):
-            model.train(kTrain)
-            kPred = model.classify(kTest.drop([targetFeature], axis=1))
-            error = computeError(kPred, kTest["Group"])
-            result[k-2].append(error)
     return result
 
 def computeFScores(precisions, recalls):
-    ''' '''
+    ''' Compute the F scores given the precisions and recalls '''
     assert len(precisions) == len(recalls), "Length of precisions and recalls must match"
     assert set(precisions.keys()) == set(recalls.keys()), "Precisions and recalls must have the same class labels"
     fScores = {}
