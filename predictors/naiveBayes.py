@@ -5,14 +5,18 @@ import decorators as decor
 from model import SupervisedModel, FeatureType
 
 class NaiveBayes(SupervisedModel):
-    ''' '''
+    ''' Naive Bayes classifiier. It takes a target feature as the predicted feature and
+        a list of known labels. This classifier stores the conditional probabilities for
+        categorical features and mean & standard deviation for continuous features, 
+        in a data frame object each.
+    '''
 
     # Static variable
     ColumnNameFormat = "{0}={1}"
 
-    def __init__(self, targetFeature, allLabels):
-        ''' '''
-        super().__init__(targetFeature)
+    def __init__(self, targetFeature, allLabels, probThresholds=None):
+        ''' Constructor '''
+        super().__init__(targetFeature, probThresholds)
         self._labelProbabilities = None
         self._categoricalProbTable = None
         self._continuousMeanStdTable = None
@@ -20,13 +24,16 @@ class NaiveBayes(SupervisedModel):
 
     @decor.elapsedTime
     def train(self, dataFrame, **kwargs):
-        ''' '''
+        ''' Train the naive bayes with the given data frame input '''
         self._computeLabelProbabilities(dataFrame)
         self._computeConditionalProbabilities(dataFrame)
 
     @decor.elapsedTime
     def classify(self, dataFrame, **kwargs):
-        ''' '''
+        ''' Classify the input data frame and return a data frame with 2 columns: Prediction and Probability.
+            Prediction column denotes the predicted label of a data point and Probability column denotes the
+            probability that the prediction is drawn from.
+        '''
         assert self._targetFeature not in dataFrame.columns.values, "Test data must not contain the target feature \"%s\"" % self._targetFeature
         predictions = []
         probabilities = []
@@ -34,7 +41,7 @@ class NaiveBayes(SupervisedModel):
 
         for index, row in dataFrame.iterrows():
             predictProbabilities = []
-
+            
             for label, labelProbability in self._labelProbabilities.items():
                 # Transform probability to log space to deal with underflow problem
                 logProbability = math.log(labelProbability)
@@ -64,28 +71,45 @@ class NaiveBayes(SupervisedModel):
                                 if (gaussianProb > 0):
                                     logProbability += math.log(gaussianProb)
 
-                predictProbabilities.append((label, logProbability))
+                predictProbabilities.append((label,  math.exp(logProbability)))
 
+            # Scale by probability threshold if available
+            predictionSeries = pd.Series([p[1] for p in predictProbabilities], index=[p[0] for p in predictProbabilities])
+            labelProbs = self._scaleByThresholds(predictionSeries)
+
+            bestLabel, bestProbability = max(labelProbs.items(), key=lambda x: x[1])
+            predictions.append(bestLabel)
+            probabilities.append(bestProbability)
+            indices.append(index)
+            
             # Sort by the log probability value stored in tuple
             # Convert the log probability to normal probability
-            bestLabel, bestLogProbability = max(predictProbabilities, key=lambda x: x[1])
-            probability = math.exp(bestLogProbability)
-            predictions.append(bestLabel)
-            probabilities.append(probability)
-            indices.append(index)
+            # bestLabel, bestLogProbability = max(predictProbabilities, key=lambda x: x[1])
+            # probability = math.exp(bestLogProbability)
+            # predictions.append(bestLabel)
+            # probabilities.append(probability)
+            # indices.append(index)
 
         return pd.DataFrame({"Prediction": predictions, "Probability": probabilities}, index=indices)
 
+    def _scaleByThresholds(self, predictionSeries):
+        ''' Scale the probability threshold of the model if
+            the thresholds are available
+        '''
+        labelProbs = predictionSeries
+        if (self._probThresholds is not None):
+            labelProbs *= self._probThresholds
+        return labelProbs
+
     def _computeLabelProbabilities(self, dataFrame):
-        ''' '''
+        ''' Compute the label probabilities from the given data frame -> P(C)'''
         self._labelProbabilities = pd.Series()
         labelCounts = dataFrame[self._targetFeature].value_counts()
         for i in labelCounts.index:
             self._labelProbabilities[i] = labelCounts[i] / len(dataFrame)
-        
 
     def _computeConditionalProbabilities(self, dataFrame):
-        ''' '''
+        ''' Compute all the conditional probabilities of the given data frame -> P(X|C) '''
         features = dataFrame.loc[:, dataFrame.columns != self._targetFeature].columns.values
         featureValueMappings = self._getCategoricalFeatureMappings(dataFrame)
         self._categoricalProbTable = pd.DataFrame(index=self._allLabels)
@@ -136,11 +160,11 @@ class NaiveBayes(SupervisedModel):
         self._verifyProbabilities()
 
     def _getGaussianProbability(self, value, mean, std):
-        ''' '''
+        ''' Use Gaussian Distribution to compute the probability '''
         return (1 / (math.sqrt(2 * (std**2) * math.pi))) * math.exp(-(value - mean)**2 / (2 * std**2))
 
     def _getCategoricalFeatureMappings(self, dataFrame):
-        ''' '''
+        ''' Get all the values of each categorical feature '''
         mappings = {}
         features = dataFrame.loc[:, dataFrame.columns != self._targetFeature].columns.values
         for feature in features:
@@ -151,7 +175,7 @@ class NaiveBayes(SupervisedModel):
         return mappings
 
     def _verifyProbabilities(self):
-        ''' '''
+        ''' Sanity test for verifying if the computed probability values are valid '''
         for i in self._categoricalProbTable.index:
             for j in self._categoricalProbTable.columns.values:
                 probability = self._categoricalProbTable.loc[i, j]

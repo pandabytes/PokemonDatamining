@@ -219,10 +219,9 @@ def kFoldCrossValidationResult(kFolds, targetFeature, dataFrame, model):
             for kTrain, kTest in zip(kTrainings, kTests):
                 model.train(kTrain, quiet=True)
                 kPred = model.classify(kTest.drop([targetFeature], axis=1), quiet=True)
-                error = computeError(kPred, kTest["Group"])
+                error = computeError(kPred, kTest[targetFeature])
                 result[k-2].append(error)
     except ValueError as ex:
-        #print("Warning: k={0} exceeds {1}, which is the minimum # of data points a label. Return early...".format(k))
         print(str(ex) + ". Return early...")
 
     return result
@@ -245,3 +244,31 @@ def computeFScores(precisions, recalls):
             fScores[label] = 0
 
     return sum(fScores.values()) / len(fScores), fScores
+
+def generateRandomThresholds(n, labels):
+    ''' Generate random thresholds for the given labels '''
+    thresholds = []
+    for i in range(n):
+        randomProbs = np.random.dirichlet(np.ones(len(labels)), size=1)[0]
+        series = pd.Series(randomProbs, index=labels)
+        thresholds.append(series)
+    return thresholds
+
+def generateThresholds(minThreshold, maxThreshold, size, labels):
+    ''' Generate thresholds with the given interval '''
+    if not (0.0 < minThreshold < 1.0 or 0.0 < maxThreshold < 1.0):
+        raise ValueError("Min or max threshold must be between 0 and 1 exclusively")
+
+    thresholds = []
+    labelsSet = set(labels)
+    thresholdValues = np.linspace(minThreshold, maxThreshold, num=size)
+    for i in thresholdValues:
+        for label in labels:
+            threshold = i
+            otherThreshold1 = np.random.uniform(0.0, 1-threshold)
+            otherThreshold2 = 1 - (threshold + otherThreshold1)
+
+            otherLabels = list(labelsSet - set([label]))
+            series = pd.Series({label: threshold, otherLabels[0]: otherThreshold1, otherLabels[1]: otherThreshold2})
+            thresholds.append(series)
+    return thresholds

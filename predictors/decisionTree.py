@@ -34,6 +34,7 @@ class DecisionTree(SupervisedModel):
         This class uses the example from here as a base https://github.com/random-forests/tutorials/blob/master/decision_tree.ipynb
     '''
     def __init__(self, targetFeature, maxDepth=3, probThresholds=None):
+        ''' Constructor '''
         super().__init__(targetFeature, probThresholds)
         self._trainedRootNode = None
         self._maxDepth = maxDepth
@@ -162,7 +163,10 @@ class DecisionTree(SupervisedModel):
         self._trainedRootNode = self._buildTree(dataFrame, 0)
 
     def classify(self, dataFrame, **kwargs):
-        ''' Classify the given data frame '''
+        ''' Classify the input data frame and return a data frame with 2 columns: Prediction and Probability.
+            Prediction column denotes the predicted label of a data point and Probability column denotes the
+            probability that the prediction is drawn from.
+        '''
         assert self._targetFeature not in dataFrame.columns.values, "Test data must not contain the target feature \"%s\"" % self._targetFeature
         predictions = []
         probabilities = []
@@ -216,14 +220,14 @@ class DecisionTree(SupervisedModel):
 
         # Stop splitting once the max depth of the tree is reached
         if (depth >= self._maxDepth):
-            labelProbs = self._computeLabelProbs(predictionCount)
+            labelProbs = self._scaleByThresholds(predictionCount)
             bestLabel, bestProb = max(labelProbs.items(), key=lambda x: x[1])
             return LeafNode(prediction=bestLabel, probability=bestProb)
 
         # Stop splitting if there's no more information to gain
         feature, featureValue, infoGain = self.findBestFeature(dataFrame)
         if (infoGain == 0):
-            labelProbs = self._computeLabelProbs(predictionCount)
+            labelProbs = self._scaleByThresholds(predictionCount)
             bestLabel, bestProb = max(labelProbs.items(), key=lambda x: x[1])
             return LeafNode(prediction=bestLabel, probability=bestProb)
 
@@ -234,9 +238,11 @@ class DecisionTree(SupervisedModel):
 
         return DecisionNode(left, right, feature, featureValue)
     
-    def _computeLabelProbs(self, predictionCount):
-        ''' '''
-        labelProbs = predictionCount / predictionCount.sum()
+    def _scaleByThresholds(self, predictionSeries):
+        ''' Scale the probability threshold of the model if
+            the thresholds are available
+        '''
+        labelProbs = predictionSeries / predictionSeries.sum()
         if (self._probThresholds is not None):
             labelProbs *= self._probThresholds
         return labelProbs
