@@ -8,7 +8,6 @@ def splitData(targetFeature, dataFrame, trainingRatio):
 
     labelValues = dataFrame[targetFeature].unique()
     trainingSize = math.floor(len(dataFrame) * trainingRatio)
-    testSize = len(dataFrame) - trainingSize
 
     # Ensure that the training and test contain all label values
     training = dataFrame.sample(n=trainingSize, replace=False, random_state=np.random.RandomState())
@@ -27,7 +26,9 @@ def splitData(targetFeature, dataFrame, trainingRatio):
     return training, test
 
 def injectMinoritySample(minLabels, target, dataFrame):
-    ''' Inject fake minority samples to the data '''
+    ''' Inject fake minority samples to the data.
+        @UNUSED and @INCOMPLETE
+    '''
 
     total = len(dataFrame) 
     maxSizeLabel = dataFrame[target].value_counts().max()
@@ -215,11 +216,11 @@ def kFoldCrossValidationResult(kFolds, targetFeature, dataFrame, model):
         for k in range(2, kFolds + 1):
             kTrainings, kTests = kFoldCrossValidation(k, dataFrame, True, targetFeature)
             result.append([])
-            print("k = ", k)
+            print("k =", k)
             for kTrain, kTest in zip(kTrainings, kTests):
                 model.train(kTrain, quiet=True)
                 kPred = model.classify(kTest.drop([targetFeature], axis=1), quiet=True)
-                error = computeError(kPred, kTest[targetFeature])
+                error = computeError(kPred["Prediction"], kTest[targetFeature])
                 result[k-2].append(error)
     except ValueError as ex:
         print(str(ex) + ". Return early...")
@@ -262,13 +263,22 @@ def generateThresholds(minThreshold, maxThreshold, size, labels):
     thresholds = []
     labelsSet = set(labels)
     thresholdValues = np.linspace(minThreshold, maxThreshold, num=size)
-    for i in thresholdValues:
-        for label in labels:
-            threshold = i
-            otherThreshold1 = np.random.uniform(0.0, 1-threshold)
-            otherThreshold2 = 1 - (threshold + otherThreshold1)
+    for i in thresholdValues[1:]:
+        for j in thresholdValues:
+            a = i
+            b = j
+            c = 1 - (i + j)
+            if (c != 0) and (a + b < 1):
+                for label in labels:
+                    otherLabels = list(labelsSet - set([label]))
+                    series = pd.Series({label: a, otherLabels[0]: b, otherLabels[1]: c})
+                    thresholds.append(series)
+        # for label in labels:
+            # threshold = i
+            # otherThreshold1 = np.random.uniform(0.0, 1-threshold)
+            # otherThreshold2 = 1 - (threshold + otherThreshold1)
 
-            otherLabels = list(labelsSet - set([label]))
-            series = pd.Series({label: threshold, otherLabels[0]: otherThreshold1, otherLabels[1]: otherThreshold2})
-            thresholds.append(series)
+            # otherLabels = list(labelsSet - set([label]))
+            # series = pd.Series({label: threshold, otherLabels[0]: otherThreshold1, otherLabels[1]: otherThreshold2})
+            # thresholds.append(series)
     return thresholds

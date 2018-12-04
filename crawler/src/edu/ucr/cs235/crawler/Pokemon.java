@@ -4,6 +4,10 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 
+/*
+ * Plain Old Data Pokemon class
+ *
+*/
 public class Pokemon
 {
   private final static String PokemonDataFormat = "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s";

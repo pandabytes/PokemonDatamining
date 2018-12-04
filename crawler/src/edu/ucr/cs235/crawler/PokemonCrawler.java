@@ -31,12 +31,25 @@ public class PokemonCrawler extends Thread
   private FileWriter m_fileWriter;
   private Document m_document;
   
+  /*
+   * Hooker function for the JVM. Get call when the program is interrupted (Ctrl+c)
+   * Simply close the output file if it's still opened.
+   * (non-Javadoc)
+   * @see java.lang.Thread#run()
+   */
   public void run()
   {
     closeFile();
   }
   
-  public void scrapePokemonList(String html) throws InterruptedException, IOException
+  /**
+   * Scrape all Pokemons. Responsible for fetching each Pokemon web page
+   * and extract the data from each page.
+   * @param html
+   * @throws InterruptedException
+   * @throws IOException
+   */
+  public void scrapePokemons(String html) throws InterruptedException, IOException
   {
     // Create the output file and open it in append mode
     createOutputFile();
@@ -44,32 +57,31 @@ public class PokemonCrawler extends Thread
     
     Document document = Jsoup.parse(html);
     HashMap<Integer, Element> pokemonTables = getPokemonTables(document);
-    HashSet<String> scrapedPokemon = new HashSet<>();
+    HashSet<String> scrapedPokemons = new HashSet<>();
     
     for (Map.Entry<Integer, Element> entry : pokemonTables.entrySet())
     {
       int generation = entry.getKey();
       Element genTableElement = entry.getValue();
 
-      // Ignore the first row in each table genTableElement.children().size()
+      // Ignore the first row in each table
       for (int j = 1; j < genTableElement.children().size(); j++)
       {
         int nationalPokedex = Integer.parseInt(genTableElement.child(j).child(1).html().substring(1));
         String name = correctPokemonName(genTableElement.child(j).child(3).text());
         
-        //System.out.print("index: " + j + " --- ");
         String url = PokemonBaseUrl + "/" + name + "_(Pokémon)";
         try
         {
-          if (!scrapedPokemon.contains(name))
+          if (!scrapedPokemons.contains(name))
           {
             String pokemonPage = getPageFromUrl(url);
-                        
+
             // A Pokemon may have various forms. Treat these forms as a separate Pokemon
             List<Pokemon> pokemonList = scrapePokemon(pokemonPage, generation, nationalPokedex, name);
             
             // Saved the Pokemon name that we've scraped
-            scrapedPokemon.add(name);
+            scrapedPokemons.add(name);
 
             // Write each Pokemon and its forms to file
             for (Pokemon pokemon : pokemonList)
@@ -100,6 +112,13 @@ public class PokemonCrawler extends Thread
     closeFile();
   }
   
+  /**
+   * This method is used for testing scraping a single Pokemon
+   * @param gen
+   * @param start
+   * @param end
+   * @throws IOException
+   */
   public void scrapePokemonTest(int gen, int start, int end) throws IOException
   {
     String html = getPageFromUrl(PokemonCrawler.PokemonBaseUrl + 
@@ -126,6 +145,12 @@ public class PokemonCrawler extends Thread
     }
   }
   
+  /**
+   * Get all the Pokemon tables from Bulbapedia. Each table
+   * represents a generation.
+   * @param document
+   * @return
+   */
   private HashMap<Integer, Element> getPokemonTables(Document document)
   {
     HashMap<Integer, Element> pokemonTables = new HashMap<>();
@@ -154,11 +179,26 @@ public class PokemonCrawler extends Thread
     return pokemonTables;
   }
   
+  /**
+   * Correct a Pokemon name so that it can be used as part of the URL 
+   * @param name
+   * @return
+   */
   private String correctPokemonName(String name)
   {
     return (name.contains(" ")) ? name.replace(' ', '_') : name;
   }
 
+  /**
+   * Scrape a single Pokemon. It may scrape multiple Pokemons due to 
+   * there are some Pokemons that have different forms.
+   * @param html
+   * @param generation
+   * @param pokedex
+   * @param defaultName
+   * @return
+   * @throws IOException
+   */
   private List<Pokemon> scrapePokemon(String html, int generation, int pokedex, String defaultName) throws IOException
   {
     m_document = Jsoup.parse(html);
@@ -239,6 +279,11 @@ public class PokemonCrawler extends Thread
     return pokemonList;
   }
   
+  /**
+   * Get all form names of a Pokemon. Such as "Charizard", "Mega Charizard X", etc...
+   * @param mainTableElement
+   * @return
+   */
   private HashSet<String> getFormNames(Element mainTableElement)
   {
     HashSet<String> formNames = new HashSet<String>();
@@ -261,11 +306,22 @@ public class PokemonCrawler extends Thread
     return formNames;
   }
 
+  /**
+   * Get the Pokemon category
+   * @param mainTableElement
+   * @return
+   */
   private String getCategory(Element mainTableElement)
   {
     return mainTableElement.getElementsByAttributeValue("href", "/wiki/Pok%C3%A9mon_category").get(0).text();
   }
   
+  /**
+   * Get all Pokemon abilities and its respective form's abilities
+   * @param mainTableElement
+   * @param name
+   * @return
+   */
   private HashMap<String, List<String>> getAbilities(Element mainTableElement, String name)
   {
     Element element = mainTableElement.getElementsByAttributeValue("title", "Ability").get(0);
@@ -303,6 +359,12 @@ public class PokemonCrawler extends Thread
     return abilities;
   }
   
+  /**
+   * Get all Pokemon types and its respective form's types
+   * @param mainTableElement
+   * @param name
+   * @return
+   */
   private HashMap<String, List<String>> getTypes(Element mainTableElement, String name)
   {
     Element element = mainTableElement.getElementsByAttributeValue("title", "Type").get(0);
@@ -332,6 +394,11 @@ public class PokemonCrawler extends Thread
     return types;
   }
   
+  /**
+   * Get a Pokemon gender ratio.
+   * @param mainTableElement
+   * @return
+   */
   private String[] getGenderRatios(Element mainTableElement)
   {
     Elements elements = mainTableElement.getElementsByAttributeValue("href", "/wiki/List_of_Pok%C3%A9mon_by_gender_ratio");
@@ -358,6 +425,11 @@ public class PokemonCrawler extends Thread
     return new String[] {male, female};
   }
   
+  /**
+   * Get a Pokemon's height value in meters
+   * @param mainTableElement
+   * @return
+   */
   private String getHeight(Element mainTableElement)
   {
     Elements elements = mainTableElement.getElementsByAttributeValue("href", "/wiki/List_of_Pok%C3%A9mon_by_height");
@@ -365,6 +437,11 @@ public class PokemonCrawler extends Thread
     return tableElement.getElementsByTag("tr").get(0).child(1).text();
   }
   
+  /**
+   * Get a Pokemon's weight value in kg
+   * @param mainTableElement
+   * @return
+   */
   private String getWeight(Element mainTableElement)
   {
     Elements elements = mainTableElement.getElementsByAttributeValue("href", "/wiki/List_of_Pok%C3%A9mon_by_weight");
@@ -372,6 +449,11 @@ public class PokemonCrawler extends Thread
     return tableElement.getElementsByTag("tr").get(0).child(1).text();
   }
   
+  /**
+   * Get all Pokemon's egg groups
+   * @param mainTableElement
+   * @return
+   */
   private HashSet<String> getEggGroups(Element mainTableElement)
   {
     HashSet<String> eggGroups = new HashSet<String>();
@@ -385,6 +467,12 @@ public class PokemonCrawler extends Thread
     return eggGroups;
   }
   
+  /**
+   * Get all Pokemon's stats and its respective form's stats
+   * @param mainttableElement
+   * @param defaultName
+   * @return
+   */
   private HashMap<String, HashMap<String, Integer>> getStats(Element mainttableElement, String defaultName)
   {
     HashMap<String, HashMap<String, Integer>> allStats = new HashMap<>();
@@ -405,6 +493,8 @@ public class PokemonCrawler extends Thread
     Element typeEffectElement = m_document.getElementById("Type_effectiveness").parent();
     Element nextElement = baseStatsElement.nextElementSibling();
     HashMap<String, Integer> latestStats = null;
+    
+    // Keep finding stat table until we hit the next section, which is type effectiveness
     while (nextElement.siblingIndex() < typeEffectElement.siblingIndex())
     {
       if (nextElement.tagName().equals("table") && nextElement.child(0).children().size() == 10)
@@ -432,6 +522,13 @@ public class PokemonCrawler extends Thread
     return allStats;
   }
    
+  /**
+   * Get abilities for a particular Pokemon's form (original form included)
+   * @param defaultName
+   * @param formName
+   * @param abilities
+   * @return
+   */
   private HashSet<String> getFormAbilities(String defaultName, String formName, HashMap<String, List<String>> abilities)
   {
     // Certain Pokemon have different forms but the same ability.
@@ -455,6 +552,13 @@ public class PokemonCrawler extends Thread
     return formAbilities;
   }
 
+  /**
+   * Get stats for a particular Pokemon's form (original form included)
+   * @param defaultName
+   * @param formName
+   * @param stats
+   * @return
+   */
   private HashMap<String, Integer> getFormStats(String defaultName, String formName, 
                                                 HashMap<String, HashMap<String, Integer>> stats)
   {
@@ -467,6 +571,11 @@ public class PokemonCrawler extends Thread
     return stats.get(tempName);
   }
   
+  /**
+   * Find the start of the content in a Pokemon page
+   * @param node
+   * @return
+   */
   private Comment findStartContent(Node node)
   {
     Comment result = null;
@@ -495,6 +604,10 @@ public class PokemonCrawler extends Thread
     return result;
   }
   
+  /**
+   * Creat the output file and write all the columns to it
+   * @throws IOException
+   */
   private void createOutputFile() throws IOException
   {
     openFile(false);
@@ -503,6 +616,11 @@ public class PokemonCrawler extends Thread
     closeFile();
   }
   
+  /**
+   * Open the file in write and append mode if requested
+   * @param append
+   * @throws IOException
+   */
   private void openFile(boolean append) throws IOException
   {
     if (m_fileWriter == null)
@@ -522,6 +640,9 @@ public class PokemonCrawler extends Thread
     }
   }
   
+  /**
+   * Close the output file
+   */
   private void closeFile()
   {
     if (m_fileWriter != null)

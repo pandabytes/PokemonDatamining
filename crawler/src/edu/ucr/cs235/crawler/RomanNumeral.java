@@ -2,6 +2,10 @@ package edu.ucr.cs235.crawler;
 
 import java.util.HashMap;
 
+/*
+ * Class used for converting roman numeral number to arabic number
+ *
+*/
 public final class RomanNumeral
 {
   private final static HashMap<String, Integer> romanNumerals = new HashMap<>();
