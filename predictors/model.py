@@ -19,8 +19,16 @@ class SupervisedModel:
         return self._targetFeature
     
     @targetFeature.setter
-    def data(self, value):
+    def targetFeature(self, value):
         self._targetFeature = value
+
+    @property
+    def probThresholds(self):
+        return self._probThresholds
+    
+    @probThresholds.setter
+    def probThresholds(self, value):
+        self._probThresholds = value
 
     def train(self, dataFrame, **kwargs):
         ''' '''

@@ -38,6 +38,14 @@ class DecisionTree(SupervisedModel):
         super().__init__(targetFeature, probThresholds)
         self._trainedRootNode = None
         self._maxDepth = maxDepth
+
+    @property
+    def maxDepth(self):
+        return self._maxDepth
+
+    @maxDepth.setter
+    def maxDepth(self, value):
+        self._maxDepth = value
         
     def informationGain(self, left, right, currentImpurity):
         ''' Compute the information gain of the split '''

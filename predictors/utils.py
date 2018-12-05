@@ -255,30 +255,52 @@ def generateRandomThresholds(n, labels):
         thresholds.append(series)
     return thresholds
 
-def generateThresholds(minThreshold, maxThreshold, size, labels):
+def generateThresholds(minThreshold, maxThreshold, numThreshold, sizePerLabel, labels):
     ''' Generate thresholds with the given interval '''
     if not (0.0 < minThreshold < 1.0 or 0.0 < maxThreshold < 1.0):
         raise ValueError("Min or max threshold must be between 0 and 1 exclusively")
 
     thresholds = []
     labelsSet = set(labels)
-    thresholdValues = np.linspace(minThreshold, maxThreshold, num=size)
-    for i in thresholdValues[1:]:
+    thresholdValues = np.linspace(minThreshold, maxThreshold, num=numThreshold)
+    labelSizes = dict([(l, 0) for l in labels])
+
+    for i in thresholdValues:
         for j in thresholdValues:
             a = i
             b = j
             c = 1 - (i + j)
-            if (c != 0) and (a + b < 1):
-                for label in labels:
-                    otherLabels = list(labelsSet - set([label]))
-                    series = pd.Series({label: a, otherLabels[0]: b, otherLabels[1]: c})
-                    thresholds.append(series)
-        # for label in labels:
-            # threshold = i
-            # otherThreshold1 = np.random.uniform(0.0, 1-threshold)
-            # otherThreshold2 = 1 - (threshold + otherThreshold1)
+            #print("{0:.2f} + {1:.2f} + {2:.2f} = {3}".format(a,b,c, a+b+c))
+            for label in labels:
+                if (labelSizes[label] >= sizePerLabel):
+                    continue
+                labelSizes[label] += 1
+                otherLabels = sorted(list(labelsSet - set([label])))
+                series = pd.Series({label: a, otherLabels[0]: b, otherLabels[1]: c})
+                thresholds.append(series)
 
-            # otherLabels = list(labelsSet - set([label]))
-            # series = pd.Series({label: threshold, otherLabels[0]: otherThreshold1, otherLabels[1]: otherThreshold2})
-            # thresholds.append(series)
+            # if (c != 0) and (a + b < 1):
+            #     for label in labels:
+            #         otherLabels = sorted(list(labelsSet - set([label])))
+            #         series = pd.Series({label: a, otherLabels[0]: b, otherLabels[1]: c})
+            #         thresholds.append(series)
+        # for label in labels:
+        #     threshold = i
+        #     otherThreshold1 = np.random.uniform(0.0, 1-threshold)
+        #     otherThreshold2 = 1 - (threshold + otherThreshold1)
+
+        #     otherLabels = list(labelsSet - set([label]))
+        #     series = pd.Series({label: threshold, otherLabels[0]: otherThreshold1, otherLabels[1]: otherThreshold2})
+        #     thresholds.append(series)
+
     return thresholds
+
+def tTest(errors1, errors2, k):
+    ''' Calculate the t-value of the errors of 2 models '''
+    meanErr1 = sum(errors1) / len(errors1)
+    meanErr2 = sum(errors2) / len(errors2)
+    var = 0
+
+    for e1, e2 in zip(errors1, errors2):
+        var += (e1 - e2 - (meanErr1 - meanErr2))**2 / k
+    return (meanErr1 - meanErr2) / math.sqrt(var / k)
