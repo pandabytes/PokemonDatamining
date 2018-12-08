@@ -2,6 +2,7 @@ import math
 import pandas as pd
 import decorators as decor
 import numpy as np
+import matplotlib.pyplot as plt
 
 def splitData(targetFeature, dataFrame, trainingRatio):
     ''' Split data into training and test set '''
@@ -304,3 +305,77 @@ def tTest(errors1, errors2, k):
     for e1, e2 in zip(errors1, errors2):
         var += (e1 - e2 - (meanErr1 - meanErr2))**2 / k
     return (meanErr1 - meanErr2) / math.sqrt(var / k)
+
+def precisionRecallCurve(actuals, predictionScores):
+    ''' Get the precision and recall values to plot the Precision-Recall Curve.
+        This function treat each label as "positive" and others as "negative".
+        In other words, this function "normalizes" the the prediction labels to be
+        binary label. 
+
+        Note: This is different from the getPrecisionsAndRecalls() function above where the
+        labels are transformed to binary labels.
+    '''
+    # Use the prediction score as the threshold
+    thresholds = set(predictionScores)
+    precisions = {}
+    recalls = {}
+
+    for label in actuals:
+        labelPrecisions = []
+        labelRecalls = []
+        binarizedLabels = []
+
+        # Tranfrom the labels to binary form: 0 and 1
+        for i, j in zip(actuals, predictionScores):
+            binarizedLabel = int(i == label)
+            binarizedLabels.append((binarizedLabel, j))
+
+        # Compute precision and recall for each threshold
+        for t in thresholds:
+            positive = 0
+            truePositive = 0
+            truePositiveFalsePositive = 0
+
+            for b in binarizedLabels:
+                if (b[0] == 1):
+                    positive += 1
+                if (b[0] == 1 and b[1] >= t):
+                    truePositive += 1
+                if (b[1] >= t):
+                    truePositiveFalsePositive += 1
+
+            precision = truePositive / truePositiveFalsePositive
+            recall = truePositive / positive
+            labelPrecisions.append(precision)
+            labelRecalls.append(recall)
+
+        precisions[label] = labelPrecisions
+        recalls[label] = labelRecalls
+
+    return precisions, recalls
+
+def plotPrecisionRecallCurve(precisions, recalls, labelColors):
+    ''' Plot the Precision-Recall Curve for each label '''
+    if (len(precisions) != len(recalls)):
+        raise ValueError("Length of precisions and recalls must match")
+    if (precisions.keys() != recalls.keys()):
+        raise ValueError("Keys in precisions and recalls must match")
+
+    for label in precisions.keys():
+        labelPrecisions = precisions[label]
+        labelRecalls = recalls[label]
+
+        # Group precision and recall in tuple and sort by recall in ascending order
+        labelPr = [(1, 0)]
+        for i, j in zip(labelPrecisions, labelRecalls):
+            labelPr.append((i, j))
+        labelPr.sort(key=lambda x: x[1])
+        
+        # Plot the PR curve
+        plt.plot([i[1] for i in labelPr], [i[0] for i in labelPr], c=labelColors[label], label=label)
+
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    plt.legend(loc="best")
+    plt.show()
+
