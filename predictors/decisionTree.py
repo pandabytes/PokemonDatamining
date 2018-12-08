@@ -33,11 +33,12 @@ class DecisionTree(SupervisedModel):
 
         This class uses the example from here as a base https://github.com/random-forests/tutorials/blob/master/decision_tree.ipynb
     '''
-    def __init__(self, targetFeature, maxDepth=3, probThresholds=None):
+    def __init__(self, targetFeature, continuousSplitmethod="k-tile", maxDepth=3, probThresholds=None):
         ''' Constructor '''
         super().__init__(targetFeature, probThresholds)
         self._trainedRootNode = None
         self._maxDepth = maxDepth
+        self._continuousSplitmethod = continuousSplitmethod
 
     @property
     def maxDepth(self):
@@ -68,11 +69,13 @@ class DecisionTree(SupervisedModel):
         featureType = super()._getFeatureType(dataFrame, feature)
 
         if (featureType == FeatureType.Continuous):
-            assert type(value) == int or type(value) == float, "Numeric feature must be passed with a numeric value"
+            if not (type(value) == int or type(value) == float or type(value) == np.int64 or type(value) == np.float64):
+                raise ValueError("Numeric feature must be passed with a numeric value")
             leftData, rightData = self.partitionContinuous(dataFrame, feature, value)
 
         elif (featureType == FeatureType.Categorical):
-            assert type(value) == str, "Categorical feature must be passed with a string value"
+            if (type(value) != str):
+                raise ValueError("Categorical feature must be passed with a string value")
             leftData, rightData = self.partitionDiscreteBinary(dataFrame, feature, value)
             
         return leftData, rightData
@@ -110,22 +113,32 @@ class DecisionTree(SupervisedModel):
             featureType = super()._getFeatureType(dataFrame, feature)
             
             if (featureType == FeatureType.Continuous):
-                values = pd.Series([i for i in dataFrame[feature]])
-                quantileValues = values.quantile(quantiles, "linear")
+                if (self._continuousSplitmethod == "k-tile"):
+                    quantileValues = dataFrame[feature].quantile(quantiles, "linear")
 
-                # Find the best quantile value
-                for quantileValue in quantileValues:
-                    leftData, rightData = self.partition(dataFrame, feature, quantileValue)
+                    # Find the best quantile value
+                    for quantileValue in quantileValues:
+                        leftData, rightData = self.partition(dataFrame, feature, quantileValue)
 
-                    # If one of the splits has no elements, then the split is trivial
-                    if (len(leftData) == 0 or len(rightData) == 0):
-                        continue
-                    
+                        # If one of the splits has no elements, then the split is trivial
+                        if (len(leftData) == 0 or len(rightData) == 0):
+                            continue
+
+                        infoGain = self.informationGain(leftData, rightData, currentImpurity)
+                        if (infoGain > bestGain):
+                            bestGain = infoGain
+                            bestFeature = feature
+                            bestFeatureValue = quantileValue
+                elif (self._continuousSplitmethod == "mean"):
+                    # Use the the mean as the splitting point
+                    mean = dataFrame[feature].mean()
+                    leftData, rightData = self.partition(dataFrame, feature, mean)
                     infoGain = self.informationGain(leftData, rightData, currentImpurity)
                     if (infoGain > bestGain):
                         bestGain = infoGain
                         bestFeature = feature
-                        bestFeatureValue = quantileValue
+                        bestFeatureValue = mean
+                else: raise ValueError("Invalid continuousSplitmethod value")
 
             elif (featureType == FeatureType.Categorical):
                 for featureValue in dataFrame[feature].unique():
@@ -141,7 +154,7 @@ class DecisionTree(SupervisedModel):
                         bestFeatureValue = featureValue
                     
         return bestFeature, bestFeatureValue, bestGain
-        
+
     def countLeafNodes(self):
         ''' Return the number of leaf nodes in the tree '''
         return self._countLeafNodes(self._trainedRootNode)
