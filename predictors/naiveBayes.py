@@ -81,14 +81,6 @@ class NaiveBayes(SupervisedModel):
             predictions.append(bestLabel)
             probabilities.append(bestProbability)
             indices.append(index)
-            
-            # Sort by the log probability value stored in tuple
-            # Convert the log probability to normal probability
-            # bestLabel, bestLogProbability = max(predictProbabilities, key=lambda x: x[1])
-            # probability = math.exp(bestLogProbability)
-            # predictions.append(bestLabel)
-            # probabilities.append(probability)
-            # indices.append(index)
 
         return pd.DataFrame({"Prediction": predictions, "Probability": probabilities}, index=indices)
 

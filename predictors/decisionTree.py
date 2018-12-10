@@ -163,7 +163,7 @@ class DecisionTree(SupervisedModel):
         ''' Return the depth of the tree '''
         return self._countTreeDepth(self._trainedRootNode)
 
-    def _getLeafNodes(self, node):
+    def _countLeafNodes(self, node):
         ''' Helper function for counting leaf nodes '''
         if (isinstance(node, LeafNode)):
             print(node.prediction, "\n")

@@ -354,13 +354,15 @@ def precisionRecallCurve(actuals, predictionScores):
 
     return precisions, recalls
 
-def plotPrecisionRecallCurve(precisions, recalls, labelColors):
+def plotPrecisionRecallCurve(precisions, recalls, labelColors, title):
     ''' Plot the Precision-Recall Curve for each label '''
     if (len(precisions) != len(recalls)):
         raise ValueError("Length of precisions and recalls must match")
     if (precisions.keys() != recalls.keys()):
         raise ValueError("Keys in precisions and recalls must match")
 
+    fig = plt.figure(title)
+    plots = []
     for label in precisions.keys():
         labelPrecisions = precisions[label]
         labelRecalls = recalls[label]
@@ -372,10 +374,12 @@ def plotPrecisionRecallCurve(precisions, recalls, labelColors):
         labelPr.sort(key=lambda x: x[1])
         
         # Plot the PR curve
-        plt.plot([i[1] for i in labelPr], [i[0] for i in labelPr], c=labelColors[label], label=label)
+        plot, = plt.plot([i[1] for i in labelPr], [i[0] for i in labelPr], c=labelColors[label], label=label)
+        plots.append(plot)
 
+    plt.title(title)
     plt.xlabel("Recall")
     plt.ylabel("Precision")
-    plt.legend(loc="best")
-    plt.show()
+    plt.legend(handles=plots, loc="best")
+    return fig
 
