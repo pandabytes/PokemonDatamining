@@ -7,7 +7,7 @@ import naiveBayes as nb
 from sklearn.metrics import roc_curve, auc
 
 # Load the Pokemon data
-fileName = r'.\Pokemon_Cleaned.tsv'
+fileName = r'Pokemon_Cleaned.tsv'
 columnTypes = {"Name": str, "Category": str, "Type 1": str, "Type 2": str, 
                "Ability 1": str, "Ability 2": str, "Ability 3": str, "Group": str}
 data = pd.read_csv(fileName, header=0, sep='\t', dtype=columnTypes)
