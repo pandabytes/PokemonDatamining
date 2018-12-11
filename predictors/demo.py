@@ -35,7 +35,9 @@ print()
 #############################################################################################################
 
 if __name__ == "__main__":
-
+	import time
+	timeStart = time.time()
+    
 	# Use Decision Tree to train on the training set and predict on the test set
 	dtree = dt.DecisionTree(Target, maxDepth=3)
 	dtree.train(Training, quiet=True)
@@ -115,5 +117,8 @@ if __name__ == "__main__":
 	p, r = ut.precisionRecallCurve(Test[Target], nbPred["Probability"])
 	nbPrFig = ut.plotPrecisionRecallCurve(p, r, LabelColors, "Naive Bayes PR Curve")
 	nbPrFig.show()
+
+	elapsedTime = time.time() - timeStart
+	print("Elapsed Time: {0:.2f} seconds".format(elapsedTime))
 
 	input("***** Press enter to end the program *****")

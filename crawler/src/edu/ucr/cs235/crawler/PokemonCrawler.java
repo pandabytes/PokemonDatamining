@@ -25,7 +25,7 @@ import org.jsoup.select.Elements;
 public class PokemonCrawler extends Thread
 {
   public final static String PokemonBaseUrl = "https://bulbapedia.bulbagarden.net/wiki";
-  public final static String OutputFile = "output\\pokemon.txt";
+    public final static String OutputFile = "output" + File.separator + "pokemon.txt";
   private final static int TimeDelayMs = 5500;
   
   private FileWriter m_fileWriter;
