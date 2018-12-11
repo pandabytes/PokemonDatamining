@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -7,10 +8,10 @@ import naiveBayes as nb
 from sklearn.metrics import roc_curve, auc
 
 # Load the Pokemon data
-fileName = r'Pokemon_Cleaned.tsv'
+filePath = os.path.join(os.getcwd(), "data", "Pokemon_Cleaned.tsv")
 columnTypes = {"Name": str, "Category": str, "Type 1": str, "Type 2": str, 
                "Ability 1": str, "Ability 2": str, "Ability 3": str, "Group": str}
-data = pd.read_csv(fileName, header=0, sep='\t', dtype=columnTypes)
+data = pd.read_csv(filePath, header=0, sep='\t', dtype=columnTypes)
 print("Random samples data:")
 print(data.sample(5))
 
@@ -23,7 +24,8 @@ ReducedData = data.drop(DropColumns, axis=1)
 Training, Test = None, None
 
 # Load the data points to Training and Test variables
-with open("training.txt", "r") as file:
+sampleFilePath = os.path.join(os.getcwd(), "data", "sample.txt")
+with open(sampleFilePath, "r") as file:
     indeces = list(map(lambda x: int(x), file.readline().strip().split(" ")))
     Test = data.drop(index=indeces)
     Training = data.drop(index=Test.index)
@@ -48,7 +50,7 @@ if __name__ == "__main__":
 	dtPrecisions, dtRecalls = ut.getPrecisionsAndRecalls(dtMatrix, Labels)
 	dtFScores = ut.computeFScores(dtPrecisions, dtRecalls)
 	print("Decision Tree Error: {0:.2f}%".format(ut.computeError(dtPred["Prediction"], Test["Group"]) * 100))
-	print("Decision Tree Avg F-score: {0:.2f}%".format(dtFScores[0]))
+	print("Decision Tree Avg F-score: {0:.2f}".format(dtFScores[0]))
 
 	# Decision Tree ROC
 	dtRocFig = plt.figure("Decision Tree ROC")
@@ -90,7 +92,7 @@ if __name__ == "__main__":
 	nbPrecisions, nbRecalls = ut.getPrecisionsAndRecalls(nbMatrix, Labels)
 	nbFScores = ut.computeFScores(nbPrecisions, nbRecalls)
 	print("Naive Bayes Error: {0:.2f}%".format(ut.computeError(nbPred["Prediction"], Test["Group"]) * 100))
-	print("Naive Bayes Avg F-score: {0:.2f}%".format(nbFScores[0]))
+	print("Naive Bayes Avg F-score: {0:.2f}".format(nbFScores[0]))
 
 	# Naive Bayes ROC
 	# For each label, treat other labels as "negative"
