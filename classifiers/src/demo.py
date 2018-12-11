@@ -8,7 +8,7 @@ import naiveBayes as nb
 from sklearn.metrics import roc_curve, auc
 
 # Load the Pokemon data
-filePath = os.path.join(os.getcwd(), "data", "Pokemon_Cleaned.tsv")
+filePath = os.path.join(os.getcwd(), "..", "data", "Pokemon_Cleaned.tsv")
 columnTypes = {"Name": str, "Category": str, "Type 1": str, "Type 2": str, 
                "Ability 1": str, "Ability 2": str, "Ability 3": str, "Group": str}
 data = pd.read_csv(filePath, header=0, sep='\t', dtype=columnTypes)
@@ -24,7 +24,7 @@ ReducedData = data.drop(DropColumns, axis=1)
 Training, Test = None, None
 
 # Load the data points to Training and Test variables
-sampleFilePath = os.path.join(os.getcwd(), "data", "sample.txt")
+sampleFilePath = os.path.join(os.getcwd(), "..", "data", "sample.txt")
 with open(sampleFilePath, "r") as file:
     indeces = list(map(lambda x: int(x), file.readline().strip().split(" ")))
     Test = data.drop(index=indeces)
