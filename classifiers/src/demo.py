@@ -3,9 +3,9 @@ import time
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import utils as ut
 from models import DecisionTree, NaiveBayes
 from sklearn.metrics import roc_curve, auc
+from utils import plots as pl, samplings as sp, evaluations as ev
 
 # Load the Pokemon data
 filePath = os.path.join("..", "data", "Pokemon_Cleaned.tsv")
@@ -32,9 +32,9 @@ with open(sampleFilePath, "r") as file:
 
 print()
 
-############################################################################################################
-############################################################################################################
-############################################################################################################
+# ############################################################################################################
+# ############################################################################################################
+# ############################################################################################################
 
 if __name__ == "__main__":
 	timeStart = time.time()
@@ -45,41 +45,25 @@ if __name__ == "__main__":
 	dtPred = dtree.classify(Test.drop([Target], axis=1))
 
 	# Confusion Matrix, Precision, Recall, F Scores, Misclassification Error
-	dtMatrix = ut.buildConfusionMatrix(dtPred["Prediction"], Test[Target], Labels)
-	dtPrecisions, dtRecalls = ut.getPrecisionsAndRecalls(dtMatrix, Labels)
-	dtFScores = ut.computeFScores(dtPrecisions, dtRecalls)
-	print("Decision Tree Error: {0:.2f}%".format(ut.computeError(dtPred["Prediction"], Test[Target]) * 100))
+	dtMatrix = ev.buildConfusionMatrix(dtPred["Prediction"], Test[Target], Labels)
+	dtPrecisions, dtRecalls = ev.getPrecisionsAndRecalls(dtMatrix, Labels)
+	dtFScores = ev.computeFScores(dtPrecisions, dtRecalls)
+	print("Decision Tree Error: {0:.2f}%".format(ev.computeError(dtPred["Prediction"], Test[Target]) * 100))
 	print("Decision Tree Avg F-score: {0:.2f}".format(dtFScores[0]))
 
-	# Decision Tree ROC
-	dtRocFig = plt.figure("Decision Tree ROC")
-	plots = []
-	for label in Labels:
-	    c = LabelColors[label]
-	    fpr, tpr, rocThresholds = roc_curve(y_true=Test[Target], y_score=[v[1] for v in dtPred.values], pos_label=label)
-	    rocAuc = auc(fpr, tpr)
-	    plot, = plt.plot(fpr, tpr, c, label='{0} AUC = {1:.2f}'.format(label, rocAuc))
-	    plots.append(plot)
-	  
-	dtRocPlot, = plt.plot([0,1],[0,1],'r--', label="Random")
-	plots.append(dtRocPlot)
-	plt.title('Decision Tree Receiver Operating Characteristic')
-	plt.xlim([0, 1.05])
-	plt.ylim([0, 1.05])
-	plt.ylabel('True Positive Rate')
-	plt.xlabel('False Positive Rate')
-	plt.legend(handles=plots, loc='best')
-	dtRocFig.show()
+	# # Decision Tree ROC
+	dtRoc = pl.plotRocCurve(Test[Target], dtPred["Probability"], LabelColors, "Decision Tree")
+	dtRoc.show()
 
 	# Decision Tree PR curve
-	p, r = ut.precisionRecallCurve(Test[Target], dtPred["Probability"])
-	dtPrFig = ut.plotPrecisionRecallCurve(p, r, LabelColors, "Decision Tree PR Curve")
+	p, r = pl.precisionRecallCurve(Test[Target], dtPred["Probability"])
+	dtPrFig = pl.plotPrecisionRecallCurve(p, r, LabelColors, "Decision Tree PR Curve")
 	dtPrFig.show()
 
 
-#############################################################################################################
-#############################################################################################################
-#############################################################################################################
+# #############################################################################################################
+# #############################################################################################################
+# #############################################################################################################
 
 
 	# Use Naive Bayes to train on the training set and predict on the test data set
@@ -87,36 +71,19 @@ if __name__ == "__main__":
 	nBayes.train(Training, quiet=True)
 	nbPred = nBayes.classify(Test.drop([Target], axis=1), quiet=True)
 
-	nbMatrix = ut.buildConfusionMatrix(nbPred["Prediction"], Test[Target], Labels)
-	nbPrecisions, nbRecalls = ut.getPrecisionsAndRecalls(nbMatrix, Labels)
-	nbFScores = ut.computeFScores(nbPrecisions, nbRecalls)
-	print("Naive Bayes Error: {0:.2f}%".format(ut.computeError(nbPred["Prediction"], Test["Group"]) * 100))
+	nbMatrix = ev.buildConfusionMatrix(nbPred["Prediction"], Test[Target], Labels)
+	nbPrecisions, nbRecalls = ev.getPrecisionsAndRecalls(nbMatrix, Labels)
+	nbFScores = ev.computeFScores(nbPrecisions, nbRecalls)
+	print("Naive Bayes Error: {0:.2f}%".format(ev.computeError(nbPred["Prediction"], Test["Group"]) * 100))
 	print("Naive Bayes Avg F-score: {0:.2f}".format(nbFScores[0]))
 
 	# Naive Bayes ROC
-	# For each label, treat other labels as "negative"
-	del plots[:]
-	nbRocFig = plt.figure("Naive Bayes ROC")
-	for label in Labels:
-	    c = LabelColors[label]
-	    fpr, tpr, thresholds = roc_curve(y_true=Test[Target], y_score=[v[1] for v in nbPred.values], pos_label=label)
-	    rocAuc = auc(fpr, tpr)
-	    plot, = plt.plot(fpr, tpr, c, label='{0} AUC = {1:.2f}'.format(label, rocAuc))
-	    plots.append(plot)
-	    
-	nbRocPlot, = plt.plot([0,1],[0,1],'r--', label="Random")
-	plots.append(nbRocPlot)
-	plt.title('Naive Bayes Receiver Operating Characteristic')
-	plt.xlim([0, 1.05])
-	plt.ylim([0, 1.05])
-	plt.ylabel('True Positive Rate')
-	plt.xlabel('False Positive Rate')
-	plt.legend(handles=plots, loc='best')
-	nbRocFig.show()
+	nbRoc = pl.plotRocCurve(Test[Target], nbPred["Probability"], LabelColors, "Naive Bayes")
+	nbRoc.show()
 
 	# Naive Bayes PR curve
-	p, r = ut.precisionRecallCurve(Test[Target], nbPred["Probability"])
-	nbPrFig = ut.plotPrecisionRecallCurve(p, r, LabelColors, "Naive Bayes PR Curve")
+	p, r = pl.precisionRecallCurve(Test[Target], nbPred["Probability"])
+	nbPrFig = pl.plotPrecisionRecallCurve(p, r, LabelColors, "Naive Bayes PR Curve")
 	nbPrFig.show()
 
 	elapsedTime = time.time() - timeStart
