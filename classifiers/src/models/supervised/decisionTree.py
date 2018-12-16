@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
-import decorators as decor
+import utils.decorators as decor
 from multiprocessing.pool import ThreadPool
-from model import SupervisedModel, FeatureType
+from ..model import SupervisedModel, FeatureType
 
 class TreeNode:
     ''' Base class for representing tree node '''

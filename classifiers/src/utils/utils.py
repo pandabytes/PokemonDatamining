@@ -1,8 +1,8 @@
 import math
 import pandas as pd
-import decorators as decor
 import numpy as np
 import matplotlib.pyplot as plt
+import utils.decorators as decor
 
 def splitData(targetFeature, dataFrame, trainingRatio):
     ''' Split data into training and test set '''

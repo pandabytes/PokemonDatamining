@@ -1,14 +1,14 @@
 import os
+import time
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import utils as ut
-import decisionTree as dt
-import naiveBayes as nb
+from models import DecisionTree, NaiveBayes
 from sklearn.metrics import roc_curve, auc
 
 # Load the Pokemon data
-filePath = os.path.join(os.getcwd(), "..", "data", "Pokemon_Cleaned.tsv")
+filePath = os.path.join("..", "data", "Pokemon_Cleaned.tsv")
 columnTypes = {"Name": str, "Category": str, "Type 1": str, "Type 2": str, 
                "Ability 1": str, "Ability 2": str, "Ability 3": str, "Group": str}
 data = pd.read_csv(filePath, header=0, sep='\t', dtype=columnTypes)
@@ -24,7 +24,7 @@ ReducedData = data.drop(DropColumns, axis=1)
 Training, Test = None, None
 
 # Load the data points to Training and Test variables
-sampleFilePath = os.path.join(os.getcwd(), "..", "data", "sample.txt")
+sampleFilePath = os.path.join("..", "data", "sample.txt")
 with open(sampleFilePath, "r") as file:
     indeces = list(map(lambda x: int(x), file.readline().strip().split(" ")))
     Test = data.drop(index=indeces)
@@ -32,16 +32,15 @@ with open(sampleFilePath, "r") as file:
 
 print()
 
-#############################################################################################################
-#############################################################################################################
-#############################################################################################################
+############################################################################################################
+############################################################################################################
+############################################################################################################
 
 if __name__ == "__main__":
-	import time
 	timeStart = time.time()
     
 	# Use Decision Tree to train on the training set and predict on the test set
-	dtree = dt.DecisionTree(Target, maxDepth=3)
+	dtree = DecisionTree(Target, maxDepth=3)
 	dtree.train(Training, quiet=True)
 	dtPred = dtree.classify(Test.drop([Target], axis=1))
 
@@ -49,7 +48,7 @@ if __name__ == "__main__":
 	dtMatrix = ut.buildConfusionMatrix(dtPred["Prediction"], Test[Target], Labels)
 	dtPrecisions, dtRecalls = ut.getPrecisionsAndRecalls(dtMatrix, Labels)
 	dtFScores = ut.computeFScores(dtPrecisions, dtRecalls)
-	print("Decision Tree Error: {0:.2f}%".format(ut.computeError(dtPred["Prediction"], Test["Group"]) * 100))
+	print("Decision Tree Error: {0:.2f}%".format(ut.computeError(dtPred["Prediction"], Test[Target]) * 100))
 	print("Decision Tree Avg F-score: {0:.2f}".format(dtFScores[0]))
 
 	# Decision Tree ROC
@@ -84,7 +83,7 @@ if __name__ == "__main__":
 
 
 	# Use Naive Bayes to train on the training set and predict on the test data set
-	nBayes = nb.NaiveBayes(Target, Labels)
+	nBayes = NaiveBayes(Target, Labels)
 	nBayes.train(Training, quiet=True)
 	nbPred = nBayes.classify(Test.drop([Target], axis=1), quiet=True)
 
