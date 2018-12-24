@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import utils.decorators as decor
+from graphviz import Digraph
 from multiprocessing.pool import ThreadPool
 from ..model import SupervisedModel, FeatureType
 
@@ -33,12 +34,15 @@ class DecisionTree(SupervisedModel):
 
         This class uses the example from here as a base https://github.com/random-forests/tutorials/blob/master/decision_tree.ipynb
     '''
-    def __init__(self, targetFeature, continuousSplitmethod="k-tile", maxDepth=3, probThresholds=None):
+    def __init__(self, targetFeature, continuousSplitmethod="k-tile", maxDepth=3, probThresholds=None, filePath="tree"):
         ''' Constructor '''
         super().__init__(targetFeature, probThresholds)
         self._trainedRootNode = None
         self._maxDepth = maxDepth
         self._continuousSplitmethod = continuousSplitmethod
+        self._filePath = filePath
+        self._nodeId = 0
+        self._diGraph = Digraph("G", filename=filePath, format="png")
 
     @property
     def maxDepth(self):
@@ -82,8 +86,8 @@ class DecisionTree(SupervisedModel):
     
     def partitionContinuous(self, dataFrame, feature, quantileValue):
         ''' Partition continous values with a given feature and quantile value. '''
-        leftData = dataFrame[dataFrame[feature] >= quantileValue]
-        rightData = dataFrame[dataFrame[feature] < quantileValue]  
+        leftData = dataFrame[dataFrame[feature] < quantileValue]
+        rightData = dataFrame[dataFrame[feature] >= quantileValue]  
         return leftData, rightData
     
     def partitionDiscrete(self, dataFrame, feature):
@@ -163,21 +167,6 @@ class DecisionTree(SupervisedModel):
         ''' Return the depth of the tree '''
         return self._countTreeDepth(self._trainedRootNode)
 
-    def _countLeafNodes(self, node):
-        ''' Helper function for counting leaf nodes '''
-        if (isinstance(node, LeafNode)):
-            print(node.prediction, "\n")
-            return 1
-        else:
-            return self._countLeafNodes(node.left) + self._countLeafNodes(node.right)
-
-    def _countTreeDepth(self, node):
-        ''' Helper function for counting the tree depth '''
-        if (node.left == None and node.right == None):
-            return 0
-        else:
-            return 1 + max(self._countTreeDepth(node.left), self._countTreeDepth(node.right))
-
     @decor.elapsedTime
     def train(self, dataFrame, **kwargs):
         ''' Train the decision tree with the given data frame input '''
@@ -199,6 +188,113 @@ class DecisionTree(SupervisedModel):
             indices.append(i)
         return pd.DataFrame({"Prediction": predictions, "Probability": probabilities}, index=indices)
 
+    def getTreeGraph(self):
+        ''' '''
+        self._diGraph.clear()
+        self._nodeId = 0
+        self._generateGraph(self._trainedRootNode)
+        return self._diGraph
+
+    def _createEdgeLabel(self, branch, feature, featureValue):
+        ''' Create edge label according to the type of the feature and its value '''
+        if (isinstance(featureValue, str)):
+            return "yes" if (branch == "left") else "no"
+        elif (isinstance(featureValue, float) or isinstance(featureValue, int)):
+            return "< {0:.2f}".format(featureValue) if (branch == "left") else ">= {0:.2f}".format(featureValue)
+        else:
+            raise ValueError("Feature type not str, int, or float")
+
+    def _generateGraph(self, node):
+        ''' Generate the decision tree graph. Assign unique id to each node starting from the root, left side, and then right side '''
+        if (node is None):
+            return
+
+        left = node.left
+        right = node.right
+        nodeId = self._nodeId
+        nodeLabel = ""
+
+        # If the root node is a leaf node
+        if (isinstance(node, LeafNode)):
+            nodeLabel = "Prediction: {0}\nProbability: {1}".format(node.prediction, node.probability)
+            self._diGraph.node(str(nodeId), nodeLabel)
+            return
+        else:
+            nodeLabel = "{0}\nValue: {1}".format(node.feature, node.featureValue)
+            self._diGraph.node(str(nodeId), nodeLabel)
+
+        if (isinstance(left, LeafNode) and isinstance(right, LeafNode)):
+            leftLabel = "Prediction: {0}\nProbability: {1}".format(left.prediction, left.probability)
+            rightLabel = "Prediction: {0}\nProbability: {1}".format(right.prediction, left.probability)
+
+            # Get left and right node id
+            leftId = self._nodeId + 1
+            rightId = self._nodeId + 2
+            self._nodeId += 2
+
+            self._diGraph.node(str(leftId), leftLabel)
+            self._diGraph.node(str(rightId), rightLabel)
+
+            self._diGraph.edge(str(nodeId), str(leftId), label=self._createEdgeLabel("left", node.feature, node.featureValue))
+            self._diGraph.edge(str(nodeId), str(rightId), label=self._createEdgeLabel("right", node.feature, node.featureValue))
+            
+        elif (isinstance(left, LeafNode)):
+            leftLabel = "Prediction: {0}\nProbability: {1}".format(left.prediction, left.probability)
+            rightLabel = "{0}\nValue: {1}".format(right.feature, right.featureValue)
+
+            # Assign id to the left node first
+            leftId = self._nodeId + 1
+            self._diGraph.node(str(leftId), leftLabel)
+            self._nodeId += 1
+
+            # Then assign id to the right node recursively
+            rightId = self._nodeId + 1
+            self._diGraph.node(str(rightId), rightLabel)
+            self._nodeId += 1
+            self._generateGraph(right)
+
+            self._diGraph.edge(str(nodeId), str(leftId), label=self._createEdgeLabel("left", node.feature, node.featureValue))
+            self._diGraph.edge(str(nodeId), str(rightId), label=self._createEdgeLabel("right", node.feature, node.featureValue))
+
+        elif (isinstance(right, LeafNode)):
+            leftLabel = "{0}\nValue: {1}".format(left.feature, left.featureValue)
+            rightLabel = "Prediction: {0}\nProbability: {1}".format(right.prediction, right.probability)
+
+            # Assign id to the left node first recursively
+            leftId = self._nodeId + 1
+            self._diGraph.node(str(leftId), leftLabel)
+            self._nodeId += 1
+            self._generateGraph(left)
+
+            # Then assig id to the right node
+            # Don't need to add 1 after each _generateGraph call. It's handled at the end of the method
+            rightId = self._nodeId 
+            self._diGraph.node(str(rightId), rightLabel)
+            
+            self._diGraph.edge(str(nodeId), str(leftId), label=self._createEdgeLabel("left", node.feature, node.featureValue))
+            self._diGraph.edge(str(nodeId), str(rightId), label=self._createEdgeLabel("right", node.feature, node.featureValue))
+            
+        else:
+            leftLabel = "{0}\nValue: {1}".format(left.feature, left.featureValue)
+            rightLabel = "{0}\nValue: {1}".format(right.feature, right.featureValue)
+
+            # Assign id to the left node first recursively
+            leftId = self._nodeId + 1
+            self._diGraph.node(str(leftId), leftLabel)
+            self._nodeId += 1
+            self._generateGraph(left)
+
+            # Then assign id to the right node recursively
+            # Don't need to add 1 after each _generateGraph call. It's handled at the end of the method
+            rightId = self._nodeId
+            self._diGraph.node(str(rightId), rightLabel)
+            self._generateGraph(right)
+
+            self._diGraph.edge(str(nodeId), str(leftId), label=self._createEdgeLabel("left", node.feature, node.featureValue))
+            self._diGraph.edge(str(nodeId), str(rightId), label=self._createEdgeLabel("right", node.feature, node.featureValue))
+
+        self._nodeId += 1
+
     def _classifyOneSample(self, row, node):
         ''' Classfiy one sample '''
         if (isinstance(node, LeafNode)):
@@ -207,7 +303,7 @@ class DecisionTree(SupervisedModel):
             # First check if the value type is numeric, then we do inequality check for numbers
             # If the value is not numeric then simply compare using ==
             value = row[node.feature]
-            if ((isinstance(value, int) or isinstance(value, float)) and (value >= node.featureValue)) or \
+            if ((isinstance(value, int) or isinstance(value, float)) and (value < node.featureValue)) or \
                 (value == node.featureValue):
                 return self._classifyOneSample(row, node.left)
             else:
@@ -267,3 +363,24 @@ class DecisionTree(SupervisedModel):
         if (self._probThresholds is not None):
             labelProbs *= self._probThresholds
         return labelProbs
+
+    def _countLeafNodes(self, node):
+        ''' Helper function for counting leaf nodes '''
+        if (node is None):
+            return 0
+        elif (isinstance(node, LeafNode)):
+            print(node.prediction, node.probability)
+            return 1
+        else:
+            print(node.feature, node.featureValue)
+            return self._countLeafNodes(left) + self._countLeafNodes(right)
+
+    def _countTreeDepth(self, node):
+        ''' Helper function for counting the tree depth '''
+        if (node is None) or (left == None and right == None):
+            return 0
+        else:
+            return 1 + max(self._countTreeDepth(left), self._countTreeDepth(right))
+
+
+

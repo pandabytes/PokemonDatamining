@@ -27,8 +27,8 @@ Training, Test = None, None
 sampleFilePath = os.path.join("..", "data", "sample.txt")
 with open(sampleFilePath, "r") as file:
     indeces = list(map(lambda x: int(x), file.readline().strip().split(" ")))
-    Test = data.drop(index=indeces)
-    Training = data.drop(index=Test.index)
+    Test = ReducedData.drop(index=indeces)
+    Training = ReducedData.drop(index=Test.index)
 
 print()
 
@@ -61,9 +61,9 @@ if __name__ == "__main__":
 	dtPrFig.show()
 
 
-# #############################################################################################################
-# #############################################################################################################
-# #############################################################################################################
+# # #############################################################################################################
+# # #############################################################################################################
+# # #############################################################################################################
 
 
 	# Use Naive Bayes to train on the training set and predict on the test data set
