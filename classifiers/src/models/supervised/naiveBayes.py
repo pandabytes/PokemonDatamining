@@ -14,9 +14,9 @@ class NaiveBayes(SupervisedModel):
     # Static variable
     ColumnNameFormat = "{0}={1}"
 
-    def __init__(self, targetFeature, allLabels, probThresholds=None):
+    def __init__(self, targetFeature, allLabels):
         ''' Constructor '''
-        super().__init__(targetFeature, probThresholds)
+        super().__init__(targetFeature)
         self._labelProbabilities = None
         self._categoricalProbTable = None
         self._continuousMeanStdTable = None
@@ -34,10 +34,9 @@ class NaiveBayes(SupervisedModel):
             Prediction column denotes the predicted label of a data point and Probability column denotes the
             probability that the prediction is drawn from.
         '''
-        assert self._targetFeature not in dataFrame.columns.values, "Test data must not contain the target feature \"%s\"" % self._targetFeature
+        super().classify(dataFrame, **kwargs)
         predictions = []
         probabilities = []
-        indices = []
 
         for index, row in dataFrame.iterrows():
             predictProbabilities = []
@@ -73,25 +72,12 @@ class NaiveBayes(SupervisedModel):
 
                 predictProbabilities.append((label,  math.exp(logProbability)))
 
-            # Scale by probability threshold if available
-            predictionSeries = pd.Series([p[1] for p in predictProbabilities], index=[p[0] for p in predictProbabilities])
-            labelProbs = self._scaleByThresholds(predictionSeries)
-
-            bestLabel, bestProbability = max(labelProbs.items(), key=lambda x: x[1])
+            # Find the best label and the probability associated to it
+            bestLabel, bestProbability = max(predictProbabilities, key=lambda x: x[1])
             predictions.append(bestLabel)
             probabilities.append(bestProbability)
-            indices.append(index)
 
-        return pd.DataFrame({"Prediction": predictions, "Probability": probabilities}, index=indices)
-
-    def _scaleByThresholds(self, predictionSeries):
-        ''' Scale the probability threshold of the model if
-            the thresholds are available
-        '''
-        labelProbs = predictionSeries
-        if (self._probThresholds is not None):
-            labelProbs *= self._probThresholds
-        return labelProbs
+        return pd.DataFrame({"Prediction": predictions, "Probability": probabilities}, index=dataFrame.index)
 
     def _computeLabelProbabilities(self, dataFrame):
         ''' Compute the label probabilities from the given data frame -> P(C)'''

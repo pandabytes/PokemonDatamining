@@ -34,9 +34,9 @@ class DecisionTree(SupervisedModel):
 
         This class uses the example from here as a base https://github.com/random-forests/tutorials/blob/master/decision_tree.ipynb
     '''
-    def __init__(self, targetFeature, continuousSplitmethod="k-tile", maxDepth=3, probThresholds=None, filePath="tree"):
+    def __init__(self, targetFeature, continuousSplitmethod="k-tile", maxDepth=3, filePath="tree"):
         ''' Constructor '''
-        super().__init__(targetFeature, probThresholds)
+        super().__init__(targetFeature)
         self._trainedRootNode = None
         self._maxDepth = maxDepth
         self._continuousSplitmethod = continuousSplitmethod
@@ -177,16 +177,15 @@ class DecisionTree(SupervisedModel):
             Prediction column denotes the predicted label of a data point and Probability column denotes the
             probability that the prediction is drawn from.
         '''
-        assert self._targetFeature not in dataFrame.columns.values, "Test data must not contain the target feature \"%s\"" % self._targetFeature
+        super().classify(dataFrame, **kwargs)
         predictions = []
         probabilities = []
-        indices = []
         for i, row in dataFrame.iterrows():
             prediction, probability = self._classifyOneSample(row, self._trainedRootNode)
             predictions.append(prediction)
             probabilities.append(probability)
-            indices.append(i)
-        return pd.DataFrame({"Prediction": predictions, "Probability": probabilities}, index=indices)
+            
+        return pd.DataFrame({"Prediction": predictions, "Probability": probabilities}, index=dataFrame.index)
 
     def getTreeGraph(self):
         ''' '''
@@ -337,15 +336,13 @@ class DecisionTree(SupervisedModel):
 
         # Stop splitting once the max depth of the tree is reached
         if (depth >= self._maxDepth):
-            labelProbs = self._scaleByThresholds(predictionCount)
-            bestLabel, bestProb = max(labelProbs.items(), key=lambda x: x[1])
+            bestLabel, bestProb = max(predictionCount.items(), key=lambda x: x[1])
             return LeafNode(prediction=bestLabel, probability=bestProb)
 
         # Stop splitting if there's no more information to gain
         feature, featureValue, infoGain = self.findBestFeature(dataFrame)
         if (infoGain == 0):
-            labelProbs = self._scaleByThresholds(predictionCount)
-            bestLabel, bestProb = max(labelProbs.items(), key=lambda x: x[1])
+            bestLabel, bestProb = max(predictionCount.items(), key=lambda x: x[1])
             return LeafNode(prediction=bestLabel, probability=bestProb)
 
         leftData, rightData = self.partition(dataFrame, feature, featureValue)

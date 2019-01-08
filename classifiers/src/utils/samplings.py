@@ -1,6 +1,8 @@
 import math
 import pandas as pd
 import numpy as np
+import random
+from models import KNearestNeighbors
 
 def splitData(targetFeature, dataFrame, trainingRatio):
     ''' Split data into training and test set '''
@@ -9,7 +11,7 @@ def splitData(targetFeature, dataFrame, trainingRatio):
     trainingSize = math.floor(len(dataFrame) * trainingRatio)
 
     # Ensure that the training and test contain all label values
-    training = dataFrame.sample(n=trainingSize, replace=False, random_state=np.random.RandomState())
+    training = dataFrame.sample(n=trainingSize, replace=False)
     test = dataFrame.drop(training.index)
     containAllLabels = False
     while (not containAllLabels):
@@ -46,6 +48,46 @@ def injectMinoritySample(minLabels, target, dataFrame):
         print(label, len(labelDataFrame))
 
     return result
+
+
+#rule = {"Sum": (c1, c2, c3, ...), "complement": (c1, c2, total)}
+
+
+def smote(dataFrame, minorityLabels, targetLabel, kValue):
+    ''' Synthetic Minority Oversampling Technique (SMOTE)'''
+    # Treat minority samples as Test data and the remaining as Training data
+    minorityDataFrame = dataFrame[dataFrame[targetLabel].isin(minorityLabels)]
+    training = dataFrame.drop(index=minorityDataFrame.index)
+    knn = KNearestNeighbors(targetLabel, k=kValue)
+    knn.train(training)
+    continousFeatures = knn.continuousFeatures
+
+    # Initialize the synthetic data frame object with column values
+    syntheticData = {targetLabel: []}
+    for cf in continousFeatures:
+        syntheticData[cf] = []
+
+    for index, row in minorityDataFrame.iterrows():
+        # Get nearest neighbors
+        nn = knn.getNN(row)
+
+        for neighborIndex in nn:
+            neighbor = dataFrame.iloc[neighborIndex]
+
+            # Assign target label to the new data point
+            syntheticData[targetLabel].append(row[targetLabel])
+            for cf in continousFeatures:
+                minValue = min(neighbor[cf], row[cf])
+                maxValue = max(neighbor[cf], row[cf])
+                value = (neighbor[cf] + row[cf]) / 2
+                syntheticData[cf].append(value)
+                # Generate new synthetic values by interpolating 
+                # between minValue & maxValue for every continous features
+                #randomValue = random.uniform(minValue, maxValue)
+                # syntheticData[cf].append(randomValue)
+
+    return dataFrame.append(pd.DataFrame(syntheticData), ignore_index=True)
+    
 
 def kFoldSample(k, dataFrame):
     ''' Parition the data into k fold samples '''
