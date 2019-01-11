@@ -50,11 +50,37 @@ def injectMinoritySample(minLabels, target, dataFrame):
     return result
 
 
-#rule = {"Sum": (c1, c2, c3, ...), "complement": (c1, c2, total)}
+#rule = {"Sum": (c1, c2, c3, cT), "complement": (c1, c2, total)}
+def _generateAddendsRule(total, min, *args):
+    ''' @INCOMPLETE '''
+    result = {}
+    tempMaxRange = total
+    tempLocalTotal = 0
+    
+    for i in range(len(args)):
+        value = 0 if (i == len(args) - 1) else randrange(min, tempMaxRange+1)
+        key = args[i]
+        result[key] = total - (tempLocalTotal + value)
+        tempMaxRange = value
+        tempLocalTotal += result[key]
+
+    # Sanity check
+    generatedTotal = sum(result.values())
+    if (total != generatedTotal):
+        raise Exception("Total={0} != generated total={1}".format(total, generatedTotal))
+
+    return result
+
+def _complementRule(total, minimum):
+    ''' '''
+    randomValue = randrange(minimum, total+1)
+    return randomValue, total-randomValue
 
 
 def smote(dataFrame, minorityLabels, targetLabel, kValue):
-    ''' Synthetic Minority Oversampling Technique (SMOTE)'''
+    ''' Synthetic Minority Oversampling Technique (SMOTE)
+        @INCOMPLETE
+    '''
     # Treat minority samples as Test data and the remaining as Training data
     minorityDataFrame = dataFrame[dataFrame[targetLabel].isin(minorityLabels)]
     training = dataFrame.drop(index=minorityDataFrame.index)
