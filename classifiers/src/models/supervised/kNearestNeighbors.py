@@ -51,7 +51,8 @@ class KNearestNeighbors(SupervisedModel):
 			if (featureType == FeatureType.Continuous):
 				self._continuousFeatures.append(feature)
 
-		self._training = dataFrame[self._continuousFeatures + [self._targetFeature]]
+		self._continuousFeatures.append(self._targetFeature)
+		self._training = dataFrame[self._continuousFeatures]
 		
 	@decor.elapsedTime
 	def classify(self, dataFrame, **kwargs):

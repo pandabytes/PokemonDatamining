@@ -17,7 +17,7 @@ class NaiveBayes(SupervisedModel):
     def __init__(self, targetFeature, allLabels):
         ''' Constructor '''
         super().__init__(targetFeature)
-        self._labelProbabilities = None
+        self._labelProbabilities = pd.Series()
         self._categoricalProbTable = None
         self._continuousMeanStdTable = None
         self._allLabels = allLabels
@@ -81,7 +81,6 @@ class NaiveBayes(SupervisedModel):
 
     def _computeLabelProbabilities(self, dataFrame):
         ''' Compute the label probabilities from the given data frame -> P(C)'''
-        self._labelProbabilities = pd.Series()
         labelCounts = dataFrame[self._targetFeature].value_counts()
         for i in labelCounts.index:
             self._labelProbabilities[i] = labelCounts[i] / len(dataFrame)

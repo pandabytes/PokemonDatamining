@@ -16,6 +16,9 @@
 # Python files & folders
 __pycache__/
 
+# Visual Studio Code folders
+.vscode/
+
 # Package Files #
 *.jar
 *.war

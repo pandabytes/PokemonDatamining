@@ -142,7 +142,8 @@ class DecisionTree(SupervisedModel):
                         bestGain = infoGain
                         bestFeature = feature
                         bestFeatureValue = mean
-                else: raise ValueError("Invalid continuousSplitmethod value")
+                else: 
+                    raise ValueError("Invalid continuousSplitmethod value")
 
             elif (featureType == FeatureType.Categorical):
                 for featureValue in dataFrame[feature].unique():
@@ -197,9 +198,15 @@ class DecisionTree(SupervisedModel):
     def _createEdgeLabel(self, branch, feature, featureValue):
         ''' Create edge label according to the type of the feature and its value '''
         if (isinstance(featureValue, str)):
-            return "yes" if (branch == "left") else "no"
+            if (branch == "left"):
+                return "yes"
+            elif (branch == "right"):
+                return "no"
+            raise ValueError("Argument branch must be either \"left\" or \"right\")
+
         elif (isinstance(featureValue, float) or isinstance(featureValue, int)):
             return "< {0:.2f}".format(featureValue) if (branch == "left") else ">= {0:.2f}".format(featureValue)
+
         else:
             raise ValueError("Feature type not str, int, or float")
 
@@ -351,33 +358,22 @@ class DecisionTree(SupervisedModel):
         right = self._buildTree(rightData, depth + 1)
 
         return DecisionNode(left, right, feature, featureValue)
-    
-    def _scaleByThresholds(self, predictionSeries):
-        ''' Scale the probability threshold of the model if
-            the thresholds are available
-        '''
-        labelProbs = predictionSeries / predictionSeries.sum()
-        if (self._probThresholds is not None):
-            labelProbs *= self._probThresholds
-        return labelProbs
 
     def _countLeafNodes(self, node):
         ''' Helper function for counting leaf nodes '''
         if (node is None):
             return 0
         elif (isinstance(node, LeafNode)):
-            print(node.prediction, node.probability)
             return 1
         else:
-            print(node.feature, node.featureValue)
-            return self._countLeafNodes(left) + self._countLeafNodes(right)
+            return self._countLeafNodes(node.left) + self._countLeafNodes(node.right)
 
     def _countTreeDepth(self, node):
         ''' Helper function for counting the tree depth '''
-        if (node is None) or (left == None and right == None):
+        if (node is None) or (node.left == None and node.right == None):
             return 0
         else:
-            return 1 + max(self._countTreeDepth(left), self._countTreeDepth(right))
+            return 1 + max(self._countTreeDepth(node.left), self._countTreeDepth(node.right))
 
 
 
