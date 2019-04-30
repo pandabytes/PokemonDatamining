@@ -202,7 +202,7 @@ class DecisionTree(SupervisedModel):
                 return "yes"
             elif (branch == "right"):
                 return "no"
-            raise ValueError("Argument branch must be either \"left\" or \"right\")
+            raise ValueError("Argument branch must be either \"left\" or \"right\"")
 
         elif (isinstance(featureValue, float) or isinstance(featureValue, int)):
             return "< {0:.2f}".format(featureValue) if (branch == "left") else ">= {0:.2f}".format(featureValue)
