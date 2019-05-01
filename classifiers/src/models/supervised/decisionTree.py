@@ -41,7 +41,7 @@ class DecisionTree(SupervisedModel):
         self._maxDepth = maxDepth
         self._continuousSplitmethod = continuousSplitmethod
         self._filePath = filePath
-        self._nodeId = 0
+        self._nodeId = 0 # Use to keep track of the nodes in DiGraph
         self._diGraph = Digraph("G", filename=filePath, format="png")
 
     @property
@@ -219,10 +219,11 @@ class DecisionTree(SupervisedModel):
         right = node.right
         nodeId = self._nodeId
         nodeLabel = ""
+        leafNodeLabelFormat = "Prediction: {0}\nProbability: {1:.3f}"
 
         # If the root node is a leaf node
         if (isinstance(node, LeafNode)):
-            nodeLabel = "Prediction: {0}\nProbability: {1}".format(node.prediction, node.probability)
+            nodeLabel = leafNodeLabelFormat.format(node.prediction, node.probability)
             self._diGraph.node(str(nodeId), nodeLabel)
             return
         else:
@@ -230,8 +231,8 @@ class DecisionTree(SupervisedModel):
             self._diGraph.node(str(nodeId), nodeLabel)
 
         if (isinstance(left, LeafNode) and isinstance(right, LeafNode)):
-            leftLabel = "Prediction: {0}\nProbability: {1}".format(left.prediction, left.probability)
-            rightLabel = "Prediction: {0}\nProbability: {1}".format(right.prediction, left.probability)
+            leftLabel = leafNodeLabelFormat.format(left.prediction, left.probability)
+            rightLabel = leafNodeLabelFormat.format(right.prediction, right.probability)
 
             # Get left and right node id
             leftId = self._nodeId + 1
@@ -245,7 +246,7 @@ class DecisionTree(SupervisedModel):
             self._diGraph.edge(str(nodeId), str(rightId), label=self._createEdgeLabel("right", node.feature, node.featureValue))
             
         elif (isinstance(left, LeafNode)):
-            leftLabel = "Prediction: {0}\nProbability: {1}".format(left.prediction, left.probability)
+            leftLabel = leafNodeLabelFormat.format(left.prediction, left.probability)
             rightLabel = "{0}\nValue: {1}".format(right.feature, right.featureValue)
 
             # Assign id to the left node first
@@ -264,7 +265,7 @@ class DecisionTree(SupervisedModel):
 
         elif (isinstance(right, LeafNode)):
             leftLabel = "{0}\nValue: {1}".format(left.feature, left.featureValue)
-            rightLabel = "Prediction: {0}\nProbability: {1}".format(right.prediction, right.probability)
+            rightLabel = leafNodeLabelFormat.format(right.prediction, right.probability)
 
             # Assign id to the left node first recursively
             leftId = self._nodeId + 1
@@ -343,13 +344,17 @@ class DecisionTree(SupervisedModel):
 
         # Stop splitting once the max depth of the tree is reached
         if (depth >= self._maxDepth):
-            bestLabel, bestProb = max(predictionCount.items(), key=lambda x: x[1])
+            bestLabel, bestLabelCount = max(predictionCount.items(), key=lambda x: x[1])
+            bestProb = float(bestLabelCount) / sum(predictionCount)
+            print(bestLabel, bestProb)
             return LeafNode(prediction=bestLabel, probability=bestProb)
 
         # Stop splitting if there's no more information to gain
         feature, featureValue, infoGain = self.findBestFeature(dataFrame)
         if (infoGain == 0):
-            bestLabel, bestProb = max(predictionCount.items(), key=lambda x: x[1])
+            bestLabel, bestLabelCount = max(predictionCount.items(), key=lambda x: x[1])
+            bestProb = float(bestLabelCount) / sum(predictionCount)
+            print(bestLabel, bestProb)
             return LeafNode(prediction=bestLabel, probability=bestProb)
 
         leftData, rightData = self.partition(dataFrame, feature, featureValue)
