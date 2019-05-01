@@ -34,8 +34,14 @@ class DecisionTree(SupervisedModel):
 
         This class uses the example from here as a base https://github.com/random-forests/tutorials/blob/master/decision_tree.ipynb
     '''
-    def __init__(self, targetFeature, continuousSplitmethod="k-tile", maxDepth=3, filePath="tree"):
+
+    ContinousSplitMethods = ["k-tile", "mean"]
+
+    def __init__(self, targetFeature: str, continuousSplitmethod: str="k-tile", maxDepth: int=3, filePath: str="tree"):
         ''' Constructor '''
+        if (continuousSplitmethod not in DecisionTree.ContinousSplitMethods):
+            raise ValueError("Continuous split method \"" + continuousSplitmethod + "\" is not supported")
+
         super().__init__(targetFeature)
         self._trainedRootNode = None
         self._maxDepth = maxDepth
@@ -45,13 +51,37 @@ class DecisionTree(SupervisedModel):
         self._diGraph = Digraph("G", filename=filePath, format="png")
 
     @property
-    def maxDepth(self):
+    def maxDepth(self) -> int:
+        ''' '''
         return self._maxDepth
 
     @maxDepth.setter
-    def maxDepth(self, value):
+    def maxDepth(self, value: int):
+        ''' '''
         self._maxDepth = value
-        
+
+    @property
+    def continuousSplitMethod(self) -> str:
+        ''' '''
+        return self._continuousSplitmethod
+
+    @continuousSplitMethod.setter
+    def continuousSplitMethod(self, value: str):
+        ''' '''
+        if (value not in DecisionTree.ContinousSplitMethods):
+            raise ValueError("Continuous split method \"" + value + "\" is not supported")
+        self._continuousSplitmethod = value
+
+    @property
+    def numLeafNodes(self) -> int:
+        ''' Get the number of leaf nodes in the tree '''
+        return self._countLeafNodes(self._trainedRootNode)
+   
+    @property
+    def depth(self) -> int:
+        ''' Get the depth of the tree '''
+        return self._countTreeDepth(self._trainedRootNode)
+
     def informationGain(self, left, right, currentImpurity):
         ''' Compute the information gain of the split '''
         p = len(left) / float(len(left) + len(right))
@@ -117,33 +147,18 @@ class DecisionTree(SupervisedModel):
             featureType = super()._getFeatureType(dataFrame, feature)
             
             if (featureType == FeatureType.Continuous):
+                infoGain, featureValue = 0.0, 0.0
+
                 if (self._continuousSplitmethod == "k-tile"):
-                    quantileValues = dataFrame[feature].quantile(quantiles, "linear")
-
-                    # Find the best quantile value
-                    for quantileValue in quantileValues:
-                        leftData, rightData = self.partition(dataFrame, feature, quantileValue)
-
-                        # If one of the splits has no elements, then the split is trivial
-                        if (len(leftData) == 0 or len(rightData) == 0):
-                            continue
-
-                        infoGain = self.informationGain(leftData, rightData, currentImpurity)
-                        if (infoGain > bestGain):
-                            bestGain = infoGain
-                            bestFeature = feature
-                            bestFeatureValue = quantileValue
+                    infoGain, featureValue = self._splitByKTile(dataFrame, feature, quantiles)
                 elif (self._continuousSplitmethod == "mean"):
-                    # Use the the mean as the splitting point
-                    mean = dataFrame[feature].mean()
-                    leftData, rightData = self.partition(dataFrame, feature, mean)
-                    infoGain = self.informationGain(leftData, rightData, currentImpurity)
-                    if (infoGain > bestGain):
-                        bestGain = infoGain
-                        bestFeature = feature
-                        bestFeatureValue = mean
-                else: 
-                    raise ValueError("Invalid continuousSplitmethod value")
+                    infoGain, featureValue = self._splitByMean(dataFrame, feature)
+
+                # Store the current best values
+                if (infoGain > bestGain):
+                    bestGain = infoGain
+                    bestFeature = feature
+                    bestFeatureValue = featureValue
 
             elif (featureType == FeatureType.Categorical):
                 for featureValue in dataFrame[feature].unique():
@@ -159,14 +174,6 @@ class DecisionTree(SupervisedModel):
                         bestFeatureValue = featureValue
                     
         return bestFeature, bestFeatureValue, bestGain
-
-    def countLeafNodes(self):
-        ''' Return the number of leaf nodes in the tree '''
-        return self._countLeafNodes(self._trainedRootNode)
-
-    def getTreeDepth(self):
-        ''' Return the depth of the tree '''
-        return self._countTreeDepth(self._trainedRootNode)
 
     @decor.elapsedTime
     def train(self, dataFrame, **kwargs):
@@ -188,11 +195,16 @@ class DecisionTree(SupervisedModel):
             
         return pd.DataFrame({"Prediction": predictions, "Probability": probabilities}, index=dataFrame.index)
 
-    def getTreeGraph(self):
-        ''' '''
-        self._diGraph.clear()
-        self._nodeId = 0
-        self._generateGraph(self._trainedRootNode)
+    def getTreeGraph(self, regenerate: bool) -> Digraph:
+        ''' Get the graph object representing this decision tree
+        
+            @regenerate: True if we want to regenerate the graph object. False otherwise
+            @return: a Digraph object from graphviz library
+        '''
+        if (regenerate):
+            self._diGraph.clear()
+            self._nodeId = 0
+            self._generateGraph(self._trainedRootNode)
         return self._diGraph
 
     def _createEdgeLabel(self, branch, feature, featureValue):
@@ -346,7 +358,6 @@ class DecisionTree(SupervisedModel):
         if (depth >= self._maxDepth):
             bestLabel, bestLabelCount = max(predictionCount.items(), key=lambda x: x[1])
             bestProb = float(bestLabelCount) / sum(predictionCount)
-            print(bestLabel, bestProb)
             return LeafNode(prediction=bestLabel, probability=bestProb)
 
         # Stop splitting if there's no more information to gain
@@ -354,7 +365,6 @@ class DecisionTree(SupervisedModel):
         if (infoGain == 0):
             bestLabel, bestLabelCount = max(predictionCount.items(), key=lambda x: x[1])
             bestProb = float(bestLabelCount) / sum(predictionCount)
-            print(bestLabel, bestProb)
             return LeafNode(prediction=bestLabel, probability=bestProb)
 
         leftData, rightData = self.partition(dataFrame, feature, featureValue)
@@ -380,5 +390,35 @@ class DecisionTree(SupervisedModel):
         else:
             return 1 + max(self._countTreeDepth(node.left), self._countTreeDepth(node.right))
 
+    def _splitByKTile(self, dataFrame, feature, quantiles):
+        ''' Split continuous feature by using k-tile method. '''
+        bestGain = 0.0
+        bestQuantileValue = None
+        currentImpurity = self.giniImpurity(dataFrame)
+        quantileValues = dataFrame[feature].quantile(quantiles, "linear")
 
+        # Find the best quantile value
+        for quantileValue in quantileValues:
+            leftData, rightData = self.partition(dataFrame, feature, quantileValue)
+
+            # If one of the splits has no elements, then the split is trivial
+            if (len(leftData) == 0 or len(rightData) == 0):
+                continue
+
+            infoGain = self.informationGain(leftData, rightData, currentImpurity)
+            if (infoGain > bestGain):
+                bestGain = infoGain
+                bestQuantileValue = quantileValue
+        
+        return bestGain, bestQuantileValue
+
+    def _splitByMean(self, dataFrame, feature):
+        ''' Split continuous feature by using mean method. '''
+        # Use the the mean as the splitting point
+        mean = dataFrame[feature].mean()
+        currentImpurity = self.giniImpurity(dataFrame)
+
+        leftData, rightData = self.partition(dataFrame, feature, mean)
+        infoGain = self.informationGain(leftData, rightData, currentImpurity)
+        return infoGain, mean
 

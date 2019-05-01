@@ -42,7 +42,8 @@ class SupervisedModel(Model):
 
     def classify(self, dataFrame, **kwargs):
         ''' '''
-        assert self._targetFeature not in dataFrame.columns.values, "Test data must not contain the target feature \"%s\"" % self._targetFeature
+        if (self._targetFeature in dataFrame.columns.values):
+            raise ValueError("Test data must not contain the target feature \"%s\"" % self._targetFeature)
 
 class UnsupervisedModel(Model):
     ''' '''
