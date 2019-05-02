@@ -82,14 +82,24 @@ class DecisionTree(SupervisedModel):
         ''' Get the depth of the tree '''
         return self._countTreeDepth(self._trainedRootNode)
 
-    def informationGain(self, left, right, currentImpurity):
-        ''' Compute the information gain of the split '''
+    def informationGain(self, left: pd.DataFrame, right: pd.DataFrame, currentImpurity: float) -> float:
+        ''' Compute the information gain of the split 
+
+            @left: the left partition of the data
+            @right: the right partition of the data
+            @currentImpurity: impurity value of the left and right partition data combined
+            @return: the information gain obtained from resulting left & right partition
+        '''
         p = len(left) / float(len(left) + len(right))
         childrenImpurity =  (p * self.giniImpurity(left)) + ((1-p) * self.giniImpurity(right))
         return currentImpurity - childrenImpurity
     
-    def giniImpurity(self, dataFrame):
-        ''' Compute the Gini Impurity of the given data frame '''
+    def giniImpurity(self, dataFrame: pd.DataFrame) -> float:
+        ''' Compute the Gini Impurity of the given data frame 
+        
+            @dataFrame: data frame object
+            @return: gini impurity value of the given data frame
+        '''
         labelCounts = dataFrame[self._targetFeature].value_counts()
         impurity = 1
         for label in labelCounts.index:
@@ -97,8 +107,14 @@ class DecisionTree(SupervisedModel):
             impurity -= probability**2
         return impurity
     
-    def partition(self, dataFrame, feature, value):
-        ''' Partition the given data frame into 2 sub-data frames by the given feature and its value '''
+    def partition(self, dataFrame: pd.DataFrame, feature: str, value: object) -> (pd.DataFrame, pd.DataFrame):
+        ''' Partition the given data frame into 2 sub-data frames by the given feature and its value 
+        
+            @dataFrame: the data frame object
+            @feature: the featured that is used as the splitting feature
+            @value: value of the given feature
+            @return: a tuple of 2 partitions after the split
+        '''
         leftData, rightData = None, None
         featureType = super()._getFeatureType(dataFrame, feature)
 
@@ -114,28 +130,49 @@ class DecisionTree(SupervisedModel):
             
         return leftData, rightData
     
-    def partitionContinuous(self, dataFrame, feature, quantileValue):
-        ''' Partition continous values with a given feature and quantile value. '''
-        leftData = dataFrame[dataFrame[feature] < quantileValue]
-        rightData = dataFrame[dataFrame[feature] >= quantileValue]  
+    def partitionContinuous(self, dataFrame: pd.DataFrame, feature: str, value: float) -> (pd.DataFrame, pd.DataFrame):
+        ''' Partition continous values with a given feature and quantile value. 
+        
+            @dataFrame: the data frame object
+            @feature: the featured that is used as the splitting feature
+            @value: value of the given feature
+            @return: a tuple of 2 partitions after the split
+        '''
+        leftData = dataFrame[dataFrame[feature] < value]
+        rightData = dataFrame[dataFrame[feature] >= value]  
         return leftData, rightData
     
-    def partitionDiscrete(self, dataFrame, feature):
-        ''' Partition a categorical feature into x number of categorical value of the given feature '''
+    def partitionDiscrete(self, dataFrame: pd.DataFrame, feature: str) -> (pd.DataFrame, pd.DataFrame):
+        ''' Partition a categorical feature into x number of categorical value of the given feature 
+        
+            @dataFrame: the data frame object
+            @feature: the featured that is used as the splitting feature
+            @return: a list of x partitions
+        '''
         partitions = []
         for value in dataFrame[feature].unique():
             partitions.append(dataFrame[dataFrame[feature] == value])
         return partitions
                 
-    def partitionDiscreteBinary(self, dataFrame, feature, value):
-        ''' Partition a categorical feature into 2 sub-panda frames '''
+    def partitionDiscreteBinary(self, dataFrame: pd.DataFrame, feature: str, value: str) -> (pd.DataFrame, pd.DataFrame):
+        ''' Partition a categorical feature into 2 sub-panda frames
+        
+            @dataFrame: the data frame object
+            @feature: the featured that is used as the splitting feature
+            @value: value of the given feature
+            @return: a tuple of 2 partitions after the split
+        '''
         leftData = dataFrame[dataFrame[feature] == value]
         rightData = dataFrame[dataFrame[feature] != value]  
         return leftData, rightData
     
-    def findBestFeature(self, dataFrame, quantiles=[0.2, 0.4, 0.6, 0.8]):
+    def findBestFeature(self, dataFrame: pd.DataFrame, quantiles: [int]=[0.2, 0.4, 0.6, 0.8]) -> (str, object, float):
         ''' Find the best feature to split the given data frame. Quantiles are optional and 
-            are only used for continous features
+            are only used for continous features.
+
+            @dataFrame: the data frame object
+            @quantiles (optional): list of quantiles to test against to find the best quantile. 
+            @return: a tuple of the best feature to be split, its corresponding value, and the best information gain
         '''
         bestGain = 0.0
         currentImpurity = self.giniImpurity(dataFrame)
@@ -176,14 +213,19 @@ class DecisionTree(SupervisedModel):
         return bestFeature, bestFeatureValue, bestGain
 
     @decor.elapsedTime
-    def train(self, dataFrame, **kwargs):
-        ''' Train the decision tree with the given data frame input '''
+    def train(self, dataFrame: pd.DataFrame, **kwargs):
+        ''' Train the decision tree with the given data frame input. Build the tree.
+        
+            @dataFrame: the data frame object
+        '''
         self._trainedRootNode = self._buildTree(dataFrame, 0)
 
-    def classify(self, dataFrame, **kwargs):
+    def classify(self, dataFrame: pd.DataFrame, **kwargs):
         ''' Classify the input data frame and return a data frame with 2 columns: Prediction and Probability.
             Prediction column denotes the predicted label of a data point and Probability column denotes the
             probability that the prediction is drawn from.
+
+            @dataFrame: the data frame object
         '''
         super().classify(dataFrame, **kwargs)
         predictions = []
@@ -207,31 +249,48 @@ class DecisionTree(SupervisedModel):
             self._generateGraph(self._trainedRootNode)
         return self._diGraph
 
-    def _createEdgeLabel(self, branch, feature, featureValue):
-        ''' Create edge label according to the type of the feature and its value '''
+    def _createEdgeLabel(self, branch: str, featureValue: object) -> str:
+        ''' Create edge label according to the type of the feature and its value 
+        
+            @branch: value must be "left" or "right". Case-sensitive
+            @featureValue: feature value to be displayed in the edge label
+            @return: the edge label 
+        '''
+        if (branch != "left") and (branch != "right"):
+            raise ValueError("Argument branch must be either \"left\" or \"right\"")
+
         if (isinstance(featureValue, str)):
             if (branch == "left"):
                 return "yes"
-            elif (branch == "right"):
+            else:
                 return "no"
-            raise ValueError("Argument branch must be either \"left\" or \"right\"")
 
         elif (isinstance(featureValue, float) or isinstance(featureValue, int)):
-            return "< {0:.2f}".format(featureValue) if (branch == "left") else ">= {0:.2f}".format(featureValue)
+            if (branch == "left"):
+                return "< {0:.2f}".format(featureValue)
+            else:
+                return ">= {0:.2f}".format(featureValue)
 
-        else:
-            raise ValueError("Feature type not str, int, or float")
+        raise ValueError("Feature type not str, int, or float")
 
-    def _generateGraph(self, node):
-        ''' Generate the decision tree graph. Assign unique id to each node starting from the root, left side, and then right side '''
+    def _generateGraph(self, node: TreeNode):
+        ''' Generate the decision tree graph. Assign unique id to each node 
+            starting from the root, left side, and then right side .
+        
+            @node: the root node of the decision tree
+        '''
         if (node is None):
             return
 
         left = node.left
         right = node.right
         nodeId = self._nodeId
-        nodeLabel = ""
-        leafNodeLabelFormat = "Prediction: {0}\nProbability: {1:.3f}"
+
+        decisionNodeLabelFormat = "{0}\nValue: {1}"
+        leafNodeLabelFormat = "Prediction: {0}\nProbability: {1:.2f}"
+        decisionNodeLabelFunc = lambda feature, value : decisionNodeLabelFormat.format(feature,
+                                                                                       value if (isinstance(value, str)) 
+                                                                                             else round(value, 2))
 
         # If the root node is a leaf node
         if (isinstance(node, LeafNode)):
@@ -239,7 +298,7 @@ class DecisionTree(SupervisedModel):
             self._diGraph.node(str(nodeId), nodeLabel)
             return
         else:
-            nodeLabel = "{0}\nValue: {1}".format(node.feature, node.featureValue)
+            nodeLabel = decisionNodeLabelFunc(node.feature, node.featureValue)
             self._diGraph.node(str(nodeId), nodeLabel)
 
         if (isinstance(left, LeafNode) and isinstance(right, LeafNode)):
@@ -254,12 +313,12 @@ class DecisionTree(SupervisedModel):
             self._diGraph.node(str(leftId), leftLabel)
             self._diGraph.node(str(rightId), rightLabel)
 
-            self._diGraph.edge(str(nodeId), str(leftId), label=self._createEdgeLabel("left", node.feature, node.featureValue))
-            self._diGraph.edge(str(nodeId), str(rightId), label=self._createEdgeLabel("right", node.feature, node.featureValue))
+            self._diGraph.edge(str(nodeId), str(leftId), label=self._createEdgeLabel("left", node.featureValue))
+            self._diGraph.edge(str(nodeId), str(rightId), label=self._createEdgeLabel("right", node.featureValue))
             
         elif (isinstance(left, LeafNode)):
             leftLabel = leafNodeLabelFormat.format(left.prediction, left.probability)
-            rightLabel = "{0}\nValue: {1}".format(right.feature, right.featureValue)
+            rightLabel = decisionNodeLabelFunc(right.feature, right.featureValue)
 
             # Assign id to the left node first
             leftId = self._nodeId + 1
@@ -272,11 +331,11 @@ class DecisionTree(SupervisedModel):
             self._nodeId += 1
             self._generateGraph(right)
 
-            self._diGraph.edge(str(nodeId), str(leftId), label=self._createEdgeLabel("left", node.feature, node.featureValue))
-            self._diGraph.edge(str(nodeId), str(rightId), label=self._createEdgeLabel("right", node.feature, node.featureValue))
+            self._diGraph.edge(str(nodeId), str(leftId), label=self._createEdgeLabel("left", node.featureValue))
+            self._diGraph.edge(str(nodeId), str(rightId), label=self._createEdgeLabel("right", node.featureValue))
 
         elif (isinstance(right, LeafNode)):
-            leftLabel = "{0}\nValue: {1}".format(left.feature, left.featureValue)
+            leftLabel = decisionNodeLabelFunc(left.feature, left.featureValue)
             rightLabel = leafNodeLabelFormat.format(right.prediction, right.probability)
 
             # Assign id to the left node first recursively
@@ -290,12 +349,12 @@ class DecisionTree(SupervisedModel):
             rightId = self._nodeId 
             self._diGraph.node(str(rightId), rightLabel)
             
-            self._diGraph.edge(str(nodeId), str(leftId), label=self._createEdgeLabel("left", node.feature, node.featureValue))
-            self._diGraph.edge(str(nodeId), str(rightId), label=self._createEdgeLabel("right", node.feature, node.featureValue))
+            self._diGraph.edge(str(nodeId), str(leftId), label=self._createEdgeLabel("left", node.featureValue))
+            self._diGraph.edge(str(nodeId), str(rightId), label=self._createEdgeLabel("right", node.featureValue))
             
         else:
-            leftLabel = "{0}\nValue: {1}".format(left.feature, left.featureValue)
-            rightLabel = "{0}\nValue: {1}".format(right.feature, right.featureValue)
+            leftLabel = decisionNodeLabelFunc(left.feature, left.featureValue)
+            rightLabel = decisionNodeLabelFunc(right.feature, right.featureValue)
 
             # Assign id to the left node first recursively
             leftId = self._nodeId + 1
@@ -309,13 +368,18 @@ class DecisionTree(SupervisedModel):
             self._diGraph.node(str(rightId), rightLabel)
             self._generateGraph(right)
 
-            self._diGraph.edge(str(nodeId), str(leftId), label=self._createEdgeLabel("left", node.feature, node.featureValue))
-            self._diGraph.edge(str(nodeId), str(rightId), label=self._createEdgeLabel("right", node.feature, node.featureValue))
+            self._diGraph.edge(str(nodeId), str(leftId), label=self._createEdgeLabel("left", node.featureValue))
+            self._diGraph.edge(str(nodeId), str(rightId), label=self._createEdgeLabel("right", node.featureValue))
 
         self._nodeId += 1
 
-    def _classifyOneSample(self, row, node):
-        ''' Classfiy one sample '''
+    def _classifyOneSample(self, row: pd.Series, node: TreeNode) -> (str, float):
+        ''' Classfiy one sample 
+
+            @row: row of a data frame
+            @node: the root node of the decision tree
+            @return: the prediction and probability of that prediction
+        '''
         if (isinstance(node, LeafNode)):
             return node.prediction, node.probability
         else:
@@ -350,8 +414,14 @@ class DecisionTree(SupervisedModel):
         t2.wait()
         return DecisionNode(t1.get(), t2.get(), feature, featureValue)
 
-    def _buildTree(self, dataFrame, depth):
-        ''' Build the trained decision tree with the given data frame '''
+    def _buildTree(self, dataFrame: pd.DataFrame, depth: int) -> TreeNode:
+        ''' Build the trained decision tree with the given data frame
+        
+            @dataFrame: data frame object
+            @depth: that maximum depth of the tree. Stop building the tree once
+                    the depth of the tree reaches to this value.
+            @return: the root node of the decision tree
+        '''
         predictionCount = dataFrame[self._targetFeature].value_counts()
 
         # Stop splitting once the max depth of the tree is reached
@@ -374,8 +444,12 @@ class DecisionTree(SupervisedModel):
 
         return DecisionNode(left, right, feature, featureValue)
 
-    def _countLeafNodes(self, node):
-        ''' Helper function for counting leaf nodes '''
+    def _countLeafNodes(self, node: TreeNode) -> int:
+        ''' Helper function for counting leaf nodes 
+        
+            @node: root node of the decision tree node
+            @return: number of leaf nodes
+        '''
         if (node is None):
             return 0
         elif (isinstance(node, LeafNode)):
@@ -383,15 +457,25 @@ class DecisionTree(SupervisedModel):
         else:
             return self._countLeafNodes(node.left) + self._countLeafNodes(node.right)
 
-    def _countTreeDepth(self, node):
-        ''' Helper function for counting the tree depth '''
+    def _countTreeDepth(self, node: TreeNode) -> int:
+        ''' Helper function for counting the tree depth 
+        
+            @node: root node of the decision tree
+            @return: the depth of the decision tree
+        '''
         if (node is None) or (node.left == None and node.right == None):
             return 0
         else:
             return 1 + max(self._countTreeDepth(node.left), self._countTreeDepth(node.right))
 
-    def _splitByKTile(self, dataFrame, feature, quantiles):
-        ''' Split continuous feature by using k-tile method. '''
+    def _splitByKTile(self, dataFrame: pd.DataFrame, feature: str, quantiles: [int]) -> (float, float):
+        ''' Split continuous feature by using k-tile method. 
+        
+            @dataFrame: data frame object
+            @feature: the feature that is used as the splitting point
+            @quantiles: list of quantiles use for determining the best quantile in that list
+            @return: tuple containing best information gain and the best quantile value
+        '''
         bestGain = 0.0
         bestQuantileValue = None
         currentImpurity = self.giniImpurity(dataFrame)
@@ -412,8 +496,13 @@ class DecisionTree(SupervisedModel):
         
         return bestGain, bestQuantileValue
 
-    def _splitByMean(self, dataFrame, feature):
-        ''' Split continuous feature by using mean method. '''
+    def _splitByMean(self, dataFrame: pd.DataFrame, feature: str) -> (float, float):
+        ''' Split continuous feature by using mean method.
+        
+            @dataFrame: data frame object
+            @feature: the feature that is used as the splitting point
+            @return: tuple containing best information gain and the mean
+        '''
         # Use the the mean as the splitting point
         mean = dataFrame[feature].mean()
         currentImpurity = self.giniImpurity(dataFrame)
