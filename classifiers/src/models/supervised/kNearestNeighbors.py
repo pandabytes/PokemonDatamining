@@ -138,7 +138,6 @@ class KNearestNeighbors(SupervisedModel):
 		''' Compute the Euclidian distance of two data points (or rows).
 		    Assume all the values are continous.
 		'''
-		print("euclidean")
 		distance = 0
 		for v1, v2 in zip(row1.values, row2.values):
 			distance += (v1 - v2)**2
@@ -149,7 +148,6 @@ class KNearestNeighbors(SupervisedModel):
 		''' Compute the Manhattan distance of two data points (or rows).
 		    Assume all the values are continous.
 		'''
-		print("manhattan")
 		distance = 0
 		for v1, v2 in zip(row1.values, row2.values):
 			distance += abs(v1 - v2)
@@ -160,7 +158,6 @@ class KNearestNeighbors(SupervisedModel):
 		''' Compute the Chebyshev distance of two data points (or rows).
 		    Assume all the values are continous.
 		'''
-		print("chebyshev")
 		distances = []
 		for v1, v2 in zip(row1.values, row2.values):
 			distances.append(abs(v1 - v2))
