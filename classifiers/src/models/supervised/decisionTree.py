@@ -41,6 +41,8 @@ class DecisionTree(SupervisedModel):
         ''' Constructor '''
         if (continuousSplitmethod not in DecisionTree.ContinousSplitMethods):
             raise ValueError("Continuous split method \"" + continuousSplitmethod + "\" is not supported")
+        elif (maxDepth < 0):
+            raise ValueError("Max depth must be at least 0")
 
         super().__init__(targetFeature)
         self._trainedRootNode = None
@@ -58,6 +60,8 @@ class DecisionTree(SupervisedModel):
     @maxDepth.setter
     def maxDepth(self, value: int):
         ''' '''
+        if (value < 0):
+            raise ValueError("Max depth must be at least 0")
         self._maxDepth = value
 
     @property

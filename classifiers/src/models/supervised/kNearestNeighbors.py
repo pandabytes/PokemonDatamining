@@ -1,4 +1,3 @@
-import math
 import numpy as np
 import pandas as pd
 import utils.decorators as decor
@@ -6,8 +5,16 @@ from ..model import SupervisedModel, FeatureType
 
 class KNearestNeighbors(SupervisedModel):
 	''' '''
+
+	DistanceMetrics = ["euclidean"]
+
 	def __init__(self, targetFeature, k=5, distanceMetric="euclidean"):
 		''' Constructor '''
+		if (distanceMetric not in KNearestNeighbors.DistanceMetrics):
+			raise ValueError("Distance metric \"{0}\" is not supported.".format(distanceMetric))
+		elif (k <= 0):
+			raise ValueError("K value must be greater than 0")
+
 		super().__init__(targetFeature)
 		self._k = k
 		self._distanceMetric = distanceMetric
@@ -22,6 +29,8 @@ class KNearestNeighbors(SupervisedModel):
 	@kValue.setter
 	def kValue(self, value):
 		''' Set k value '''
+		if (value <= 0):
+			raise ValueError("K value must be greater than 0")
 		self._k = value
 
 	@property
@@ -32,6 +41,8 @@ class KNearestNeighbors(SupervisedModel):
 	@distanceMetric.setter
 	def distanceMetric(self, value):
 		''' Set distance metric '''
+		if (value not in KNearestNeighbors.DistanceMetrics):
+			raise ValueError("Distance metric \"{0}\" is not supported.".format(value))
 		self._distanceMetric = value
 
 	@property
@@ -51,8 +62,7 @@ class KNearestNeighbors(SupervisedModel):
 			if (featureType == FeatureType.Continuous):
 				self._continuousFeatures.append(feature)
 
-		self._continuousFeatures.append(self._targetFeature)
-		self._training = dataFrame[self._continuousFeatures]
+		self._training = dataFrame[self._continuousFeatures + [self._targetFeature]]
 		
 	@decor.elapsedTime
 	def classify(self, dataFrame, **kwargs):
@@ -69,7 +79,7 @@ class KNearestNeighbors(SupervisedModel):
 			# Compute the distance from each test point to each training point
 			for j in self._training.index:
 				if (i != j):
-					distance = KNearestNeighbors._euclideanDistance(testDataFrame.loc[i], self._training.loc[j])
+					distance = self._getDistanceMetricFunc()(testDataFrame.loc[i], self._training.loc[j])
 					label = self._training.loc[j, self._targetFeature]
 					labelsDistances[i].append((label, distance))
 				
@@ -114,6 +124,11 @@ class KNearestNeighbors(SupervisedModel):
 				labelCounts[label] += 1
 		return labelCounts
 
+	def _getDistanceMetricFunc(self):
+		''' '''
+		if (self._distanceMetric == "euclidean"):
+			return KNearestNeighbors._euclideanDistance
+
 	@staticmethod
 	def _euclideanDistance(row1, row2):
 		''' Compute the Euclidian distance of two data points (or rows).
@@ -122,5 +137,5 @@ class KNearestNeighbors(SupervisedModel):
 		distance = 0
 		for v1, v2 in zip(row1.values, row2.values):
 			distance += (v1 - v2)**2
-		return math.sqrt(distance)
+		return np.sqrt(distance)
 
