@@ -6,7 +6,7 @@ from ..model import SupervisedModel, FeatureType
 class KNearestNeighbors(SupervisedModel):
 	''' '''
 
-	DistanceMetrics = ["euclidean"]
+	DistanceMetrics = ["euclidean", "manhattan", "chebyshev"]
 
 	def __init__(self, targetFeature, k=5, distanceMetric="euclidean"):
 		''' Constructor '''
@@ -128,14 +128,41 @@ class KNearestNeighbors(SupervisedModel):
 		''' '''
 		if (self._distanceMetric == "euclidean"):
 			return KNearestNeighbors._euclideanDistance
+		elif (self._distanceMetric == "manhattan"):
+			return KNearestNeighbors._manhattanDistance
+		elif (self._distanceMetric == "chebyshev"):
+			return KNearestNeighbors._chebyshevDistance
 
 	@staticmethod
 	def _euclideanDistance(row1, row2):
 		''' Compute the Euclidian distance of two data points (or rows).
 		    Assume all the values are continous.
 		'''
+		print("euclidean")
 		distance = 0
 		for v1, v2 in zip(row1.values, row2.values):
 			distance += (v1 - v2)**2
 		return np.sqrt(distance)
+
+	@staticmethod
+	def _manhattanDistance(row1, row2):
+		''' Compute the Manhattan distance of two data points (or rows).
+		    Assume all the values are continous.
+		'''
+		print("manhattan")
+		distance = 0
+		for v1, v2 in zip(row1.values, row2.values):
+			distance += abs(v1 - v2)
+		return distance
+
+	@staticmethod
+	def _chebyshevDistance(row1, row2):
+		''' Compute the Chebyshev distance of two data points (or rows).
+		    Assume all the values are continous.
+		'''
+		print("chebyshev")
+		distances = []
+		for v1, v2 in zip(row1.values, row2.values):
+			distances.append(abs(v1 - v2))
+		return max(distances)
 
