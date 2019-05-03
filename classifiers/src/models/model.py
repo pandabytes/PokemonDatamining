@@ -8,6 +8,10 @@ class FeatureType:
 class Model:
     ''' '''
 
+    @property
+    def name(self) -> str:
+        return "Unknown Model"
+
     def train(self, dataFrame, **kwargs):
         ''' '''
         raise NotImplementedError("Method \"train\" not implemented")

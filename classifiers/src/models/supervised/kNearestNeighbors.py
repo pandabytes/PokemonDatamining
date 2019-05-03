@@ -22,6 +22,10 @@ class KNearestNeighbors(SupervisedModel):
 		self._continuousFeatures = []
 
 	@property
+	def name(self) -> str:
+		return "K Nearest Neighbors"
+
+	@property
 	def kValue(self):
 		''' Get k value '''
 		return self._k

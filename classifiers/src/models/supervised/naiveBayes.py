@@ -22,6 +22,10 @@ class NaiveBayes(SupervisedModel):
         self._continuousMeanStdTable = None
         self._allLabels = allLabels
 
+    @property
+    def name(self) -> str:
+        return "Naive Bayes"
+
     @decor.elapsedTime
     def train(self, dataFrame, **kwargs):
         ''' Train the naive bayes with the given data frame input '''

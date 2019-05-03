@@ -53,6 +53,10 @@ class DecisionTree(SupervisedModel):
         self._diGraph = Digraph("G", filename=filePath, format="png")
 
     @property
+    def name(self) -> str:
+        return "Decision Tree"
+
+    @property
     def maxDepth(self) -> int:
         ''' '''
         return self._maxDepth
