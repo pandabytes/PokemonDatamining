@@ -14,8 +14,14 @@ class Model:
         return "Unknown Model"
 
     def train(self, dataFrame: pd.DataFrame, **kwargs):
-        ''' '''
-        raise NotImplementedError("Method \"train\" not implemented")
+        ''' Train the model with given training data '''
+        raise NotImplementedError("Method \"train\" is not implemented for model \"%s\"" % self.name)
+
+    def clear(self):
+        ''' Clear the current state and all data of the model.
+            This doesn't clear the properties of the model, however.
+        '''
+        raise NotImplementedError("Method \"clear\" is not implemented for model \"%s\"" % self.name)
 
     def _getFeatureType(self, dataFrame: pd.DataFrame, feature: str) -> FeatureType:
         ''' '''

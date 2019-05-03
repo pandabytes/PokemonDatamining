@@ -90,6 +90,13 @@ class DecisionTree(SupervisedModel):
         ''' Get the depth of the tree '''
         return self._countTreeDepth(self._trainedRootNode)
 
+    def clear(self):
+        ''' Clear the current state and all data of the model.
+            This doesn't clear the properties of the model, however.
+        '''
+        self._trainedRootNode = None
+        self._diGraph.clear()
+
     def informationGain(self, left: pd.DataFrame, right: pd.DataFrame, currentImpurity: float) -> float:
         ''' Compute the information gain of the split 
 

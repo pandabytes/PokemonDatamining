@@ -18,13 +18,25 @@ class NaiveBayes(SupervisedModel):
         ''' Constructor '''
         super().__init__(targetFeature)
         self._labelProbabilities = pd.Series()
-        self._categoricalProbTable = None
-        self._continuousMeanStdTable = None
         self._allLabels = allLabels
+        self._categoricalProbTable = pd.DataFrame(index=self._allLabels)
+        self._continuousMeanStdTable = pd.DataFrame(index=self._allLabels)
 
     @property
     def name(self) -> str:
         return "Naive Bayes"
+
+    def clear(self):
+        ''' Clear the current state and all data of the model.
+            This doesn't clear the properties of the model, however.
+        '''
+        self._labelProbabilities.drop(self._labelProbabilities.index, axis=0, inplace=True)
+
+        self._categoricalProbTable.drop(self._categoricalProbTable.index, axis=0, inplace=True)
+        self._categoricalProbTable.drop(self._categoricalProbTable.columns, axis=1, inplace=True)
+
+        self._continuousMeanStdTable.drop(self._continuousMeanStdTable.index, axis=0, inplace=True)
+        self._continuousMeanStdTable.drop(self._continuousMeanStdTable.columns, axis=1, inplace=True)
 
     @decor.elapsedTime
     def train(self, dataFrame, **kwargs):
@@ -93,8 +105,6 @@ class NaiveBayes(SupervisedModel):
         ''' Compute all the conditional probabilities of the given data frame -> P(X|C) '''
         features = dataFrame.loc[:, dataFrame.columns != self._targetFeature].columns.values
         featureValueMappings = self._getCategoricalFeatureMappings(dataFrame)
-        self._categoricalProbTable = pd.DataFrame(index=self._allLabels)
-        self._continuousMeanStdTable = pd.DataFrame(index=self._allLabels)
 
         for label in self._allLabels:
             labelDataFrame = dataFrame[dataFrame[self._targetFeature] == label]

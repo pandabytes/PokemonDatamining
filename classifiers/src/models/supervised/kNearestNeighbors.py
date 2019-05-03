@@ -39,7 +39,7 @@ class KNearestNeighbors(SupervisedModel):
 		self._k = value
 
 	@property
-	def distanceMetric(self) -> sr:
+	def distanceMetric(self) -> str:
 		''' Get distance metric '''
 		return self._distanceMetric
 
@@ -54,6 +54,17 @@ class KNearestNeighbors(SupervisedModel):
 	def continuousFeatures(self) -> [str]:
 		''' Get continous features '''
 		return self._continuousFeatures
+
+	def clear(self):
+		''' Clear the current state and all data of the model.
+            This doesn't clear the properties of the model, however.
+        '''
+		del self._continuousFeatures[:]
+
+		if (self._training is not None):
+			self._training.drop(self._training.index, axis=0, inplace=True)
+			self._training.drop(self._training.columns, axis=1, inplace=True)
+		self._training = None
 
 	def train(self, dataFrame: pd.DataFrame, **kwargs):
 		''' Train this classifier. Set the training class variable to data
