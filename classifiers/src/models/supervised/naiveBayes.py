@@ -14,7 +14,7 @@ class NaiveBayes(SupervisedModel):
     # Static variable
     ColumnNameFormat = "{0}={1}"
 
-    def __init__(self, targetFeature, allLabels):
+    def __init__(self, targetFeature: str, allLabels: [str]):
         ''' Constructor '''
         super().__init__(targetFeature)
         self._labelProbabilities = pd.Series()

@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 class FeatureType:
     Categorical = 0
@@ -12,11 +13,11 @@ class Model:
     def name(self) -> str:
         return "Unknown Model"
 
-    def train(self, dataFrame, **kwargs):
+    def train(self, dataFrame: pd.DataFrame, **kwargs):
         ''' '''
         raise NotImplementedError("Method \"train\" not implemented")
 
-    def _getFeatureType(self, dataFrame, feature):
+    def _getFeatureType(self, dataFrame: pd.DataFrame, feature: str) -> FeatureType:
         ''' '''
         featureType = dataFrame.dtypes[feature].type
         if (featureType == np.int64 or featureType == np.float64):
@@ -34,17 +35,18 @@ class SupervisedModel(Model):
         they are not overriden.
     '''
     def __init__(self, targetFeature):
+        ''' Constructor '''
         self._targetFeature = targetFeature
 
     @property
-    def targetFeature(self):
+    def targetFeature(self) -> str:
         return self._targetFeature
     
     @targetFeature.setter
-    def targetFeature(self, value):
+    def targetFeature(self, value: str):
         self._targetFeature = value
 
-    def classify(self, dataFrame, **kwargs):
+    def classify(self, dataFrame: pd.DataFrame, **kwargs):
         ''' '''
         if (self._targetFeature in dataFrame.columns.values):
             raise ValueError("Test data must not contain the target feature \"%s\"" % self._targetFeature)

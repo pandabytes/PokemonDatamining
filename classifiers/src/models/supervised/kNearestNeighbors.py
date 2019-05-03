@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import typing as tp
 import utils.decorators as decor
 from ..model import SupervisedModel, FeatureType
 
@@ -8,7 +9,7 @@ class KNearestNeighbors(SupervisedModel):
 
 	DistanceMetrics = ["euclidean", "manhattan", "chebyshev"]
 
-	def __init__(self, targetFeature, k=5, distanceMetric="euclidean"):
+	def __init__(self, targetFeature: str, k: int=5, distanceMetric: str="euclidean"):
 		''' Constructor '''
 		if (distanceMetric not in KNearestNeighbors.DistanceMetrics):
 			raise ValueError("Distance metric \"{0}\" is not supported.".format(distanceMetric))
@@ -26,35 +27,35 @@ class KNearestNeighbors(SupervisedModel):
 		return "K Nearest Neighbors"
 
 	@property
-	def kValue(self):
+	def kValue(self) -> int:
 		''' Get k value '''
 		return self._k
 
 	@kValue.setter
-	def kValue(self, value):
+	def kValue(self, value: int):
 		''' Set k value '''
 		if (value <= 0):
 			raise ValueError("K value must be greater than 0")
 		self._k = value
 
 	@property
-	def distanceMetric(self):
+	def distanceMetric(self) -> sr:
 		''' Get distance metric '''
 		return self._distanceMetric
 
 	@distanceMetric.setter
-	def distanceMetric(self, value):
+	def distanceMetric(self, value: str):
 		''' Set distance metric '''
 		if (value not in KNearestNeighbors.DistanceMetrics):
 			raise ValueError("Distance metric \"{0}\" is not supported.".format(value))
 		self._distanceMetric = value
 
 	@property
-	def continuousFeatures(self):
+	def continuousFeatures(self) -> [str]:
 		''' Get continous features '''
 		return self._continuousFeatures
 
-	def train(self, dataFrame, **kwargs):
+	def train(self, dataFrame: pd.DataFrame, **kwargs):
 		''' Train this classifier. Set the training class variable to data
 			frame that contains only the continuous features of the training set
 		'''
@@ -69,7 +70,7 @@ class KNearestNeighbors(SupervisedModel):
 		self._training = dataFrame[self._continuousFeatures + [self._targetFeature]]
 		
 	@decor.elapsedTime
-	def classify(self, dataFrame, **kwargs):
+	def classify(self, dataFrame: pd.DataFrame, **kwargs):
 		''' '''
 		super().classify(dataFrame, **kwargs)
 		labelsDistances = {}
@@ -101,14 +102,14 @@ class KNearestNeighbors(SupervisedModel):
 			
 		return pd.DataFrame({"Prediction": predictions, "Probability": probabilities}, index=dataFrame.index)
 
-	def getNN(self, row):
+	def getNN(self, row) -> [int]:
 		''' '''
 		row = row[self._continuousFeatures]
 		rowDistances = []
 
 		# Compute the distance from each test point to each training point
 		for i in self._training.index:
-			distance = KNearestNeighbors._euclideanDistance(row, self._training.loc[i])
+			distance = KNearestNeighbors._getDistanceMetricFunc()(row, self._training.loc[i])
 			rowDistances.append((i, distance))
 
 		# Sort by distances in ascending order
@@ -118,7 +119,7 @@ class KNearestNeighbors(SupervisedModel):
 
 		
 	@staticmethod
-	def _countLabelValues(labelsDistances):
+	def _countLabelValues(labelsDistances: (str, float)) -> {str: int}:
 		''' '''
 		labelCounts = {}
 		for label, distance in labelsDistances:
@@ -128,7 +129,7 @@ class KNearestNeighbors(SupervisedModel):
 				labelCounts[label] += 1
 		return labelCounts
 
-	def _getDistanceMetricFunc(self):
+	def _getDistanceMetricFunc(self) -> tp.Callable:
 		''' '''
 		if (self._distanceMetric == "euclidean"):
 			return KNearestNeighbors._euclideanDistance
@@ -138,7 +139,7 @@ class KNearestNeighbors(SupervisedModel):
 			return KNearestNeighbors._chebyshevDistance
 
 	@staticmethod
-	def _euclideanDistance(row1, row2):
+	def _euclideanDistance(row1: pd.Series, row2: pd.Series) -> float:
 		''' Compute the Euclidian distance of two data points (or rows).
 		    Assume all the values are continous.
 		'''
@@ -148,7 +149,7 @@ class KNearestNeighbors(SupervisedModel):
 		return np.sqrt(distance)
 
 	@staticmethod
-	def _manhattanDistance(row1, row2):
+	def _manhattanDistance(row1: pd.Series, row2: pd.Series) -> float:
 		''' Compute the Manhattan distance of two data points (or rows).
 		    Assume all the values are continous.
 		'''
@@ -158,7 +159,7 @@ class KNearestNeighbors(SupervisedModel):
 		return distance
 
 	@staticmethod
-	def _chebyshevDistance(row1, row2):
+	def _chebyshevDistance(row1: pd.Series, row2: pd.Series) -> float:
 		''' Compute the Chebyshev distance of two data points (or rows).
 		    Assume all the values are continous.
 		'''
