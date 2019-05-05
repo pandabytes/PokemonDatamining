@@ -26,12 +26,11 @@ class Model:
     def _getFeatureType(self, dataFrame: pd.DataFrame, feature: str) -> FeatureType:
         ''' '''
         featureType = dataFrame.dtypes[feature].type
-        if (featureType == np.int64 or featureType == np.float64):
+        if (featureType == np.int32 or featureType == np.float32 or \
+            featureType == np.int64 or featureType == np.float64):
             return FeatureType.Continuous
-        elif (featureType== np.object_):
+        elif (featureType == np.object_ or (featureType == np.bool_)):
             return FeatureType.Categorical
-        elif (featureType == np.bool_):
-            return FeatureType.Boolean
         else:
             raise ValueError("Invalid feature %s type" % featureType)
 
@@ -56,6 +55,10 @@ class SupervisedModel(Model):
         ''' '''
         if (self._targetFeature in dataFrame.columns.values):
             raise ValueError("Test data must not contain the target feature \"%s\"" % self._targetFeature)
+
+    def _createResultDataFrame(self, predictions: [str], probabilities: [float], indexes=None):
+        ''' '''
+        return pd.DataFrame({"Prediction": predictions, "Probability": probabilities}, index=indexes)
 
 class UnsupervisedModel(Model):
     ''' '''

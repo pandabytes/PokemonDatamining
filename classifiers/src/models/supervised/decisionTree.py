@@ -132,14 +132,15 @@ class DecisionTree(SupervisedModel):
         '''
         leftData, rightData = None, None
         featureType = super()._getFeatureType(dataFrame, feature)
+        valueType = type(value)
 
         if (featureType == FeatureType.Continuous):
-            if not (type(value) == int or type(value) == float or type(value) == np.int64 or type(value) == np.float64):
+            if not ((valueType is int) or (valueType is float) or (valueType is np.int64) or (valueType is np.float64)):
                 raise ValueError("Numeric feature must be passed with a numeric value")
             leftData, rightData = self.partitionContinuous(dataFrame, feature, value)
 
         elif (featureType == FeatureType.Categorical):
-            if (type(value) != str):
+            if not ((valueType is str) or (valueType is bool) or (valueType is np.bool_)):
                 raise ValueError("Categorical feature must be passed with a string value")
             leftData, rightData = self.partitionDiscreteBinary(dataFrame, feature, value)
             
@@ -233,6 +234,7 @@ class DecisionTree(SupervisedModel):
         
             @dataFrame: the data frame object
         '''
+        self.clear()
         self._trainedRootNode = self._buildTree(dataFrame, 0)
 
     def classify(self, dataFrame: pd.DataFrame, **kwargs):
@@ -250,7 +252,7 @@ class DecisionTree(SupervisedModel):
             predictions.append(prediction)
             probabilities.append(probability)
             
-        return pd.DataFrame({"Prediction": predictions, "Probability": probabilities}, index=dataFrame.index)
+        return self._createResultDataFrame(predictions, probabilities, dataFrame.index)
 
     def getTreeGraph(self, regenerate: bool) -> Digraph:
         ''' Get the graph object representing this decision tree
@@ -274,19 +276,21 @@ class DecisionTree(SupervisedModel):
         if (branch != "left") and (branch != "right"):
             raise ValueError("Argument branch must be either \"left\" or \"right\"")
 
-        if (isinstance(featureValue, str)):
+        featureValueType = type(featureValue)
+        if (featureValueType is str) or \
+           (featureValueType is bool) or (featureValueType is np.bool_):
             if (branch == "left"):
                 return "yes"
             else:
                 return "no"
 
-        elif (isinstance(featureValue, float) or isinstance(featureValue, int)):
+        elif (featureValueType is int or featureValueType is float):
             if (branch == "left"):
                 return "< {0:.2f}".format(featureValue)
             else:
                 return ">= {0:.2f}".format(featureValue)
 
-        raise ValueError("Feature type not str, int, or float")
+        raise ValueError("Feature type \"{0}\" is not str, int, bool, or float".format(featureValueType))
 
     def _generateGraph(self, node: TreeNode):
         ''' Generate the decision tree graph. Assign unique id to each node 
@@ -304,11 +308,13 @@ class DecisionTree(SupervisedModel):
         decisionNodeLabelFormat = "{0}\nValue: {1}"
         leafNodeLabelFormat = "Prediction: {0}\nProbability: {1:.2f}"
         decisionNodeLabelFunc = lambda feature, value : decisionNodeLabelFormat.format(feature,
-                                                                                       value if (isinstance(value, str)) 
+                                                                                       value if (type(value) is str or \
+                                                                                                 type(value) is bool or \
+                                                                                                 type(value) is np.bool_) 
                                                                                              else round(value, 2))
 
         # If the root node is a leaf node
-        if (isinstance(node, LeafNode)):
+        if (type(node) is LeafNode):
             nodeLabel = leafNodeLabelFormat.format(node.prediction, node.probability)
             self._diGraph.node(str(nodeId), nodeLabel)
             return
@@ -316,7 +322,7 @@ class DecisionTree(SupervisedModel):
             nodeLabel = decisionNodeLabelFunc(node.feature, node.featureValue)
             self._diGraph.node(str(nodeId), nodeLabel)
 
-        if (isinstance(left, LeafNode) and isinstance(right, LeafNode)):
+        if (type(left) is LeafNode and type(right) is LeafNode):
             leftLabel = leafNodeLabelFormat.format(left.prediction, left.probability)
             rightLabel = leafNodeLabelFormat.format(right.prediction, right.probability)
 
@@ -331,7 +337,7 @@ class DecisionTree(SupervisedModel):
             self._diGraph.edge(str(nodeId), str(leftId), label=self._createEdgeLabel("left", node.featureValue))
             self._diGraph.edge(str(nodeId), str(rightId), label=self._createEdgeLabel("right", node.featureValue))
             
-        elif (isinstance(left, LeafNode)):
+        elif (type(left) is LeafNode):
             leftLabel = leafNodeLabelFormat.format(left.prediction, left.probability)
             rightLabel = decisionNodeLabelFunc(right.feature, right.featureValue)
 
@@ -349,7 +355,7 @@ class DecisionTree(SupervisedModel):
             self._diGraph.edge(str(nodeId), str(leftId), label=self._createEdgeLabel("left", node.featureValue))
             self._diGraph.edge(str(nodeId), str(rightId), label=self._createEdgeLabel("right", node.featureValue))
 
-        elif (isinstance(right, LeafNode)):
+        elif (type(right) is LeafNode):
             leftLabel = decisionNodeLabelFunc(left.feature, left.featureValue)
             rightLabel = leafNodeLabelFormat.format(right.prediction, right.probability)
 
@@ -395,13 +401,13 @@ class DecisionTree(SupervisedModel):
             @node: the root node of the decision tree
             @return: the prediction and probability of that prediction
         '''
-        if (isinstance(node, LeafNode)):
+        if (type(node) is LeafNode):
             return node.prediction, node.probability
         else:
             # First check if the value type is numeric, then we do inequality check for numbers
             # If the value is not numeric then simply compare using ==
             value = row[node.feature]
-            if ((isinstance(value, int) or isinstance(value, float)) and (value < node.featureValue)) or \
+            if ((type(value) is int or (type(value) is float)) and (value < node.featureValue)) or \
                 (value == node.featureValue):
                 return self._classifyOneSample(row, node.left)
             else:
@@ -467,7 +473,7 @@ class DecisionTree(SupervisedModel):
         '''
         if (node is None):
             return 0
-        elif (isinstance(node, LeafNode)):
+        elif (type(node) is LeafNode):
             return 1
         else:
             return self._countLeafNodes(node.left) + self._countLeafNodes(node.right)

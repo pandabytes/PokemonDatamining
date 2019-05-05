@@ -2,9 +2,10 @@ import math
 import pandas as pd
 import numpy as np
 import random
+import utils.evaluations as ev
 from models import KNearestNeighbors
 
-def splitData(targetFeature, dataFrame, trainingRatio):
+def splitData(targetFeature, dataFrame, trainingRatio, containAllLabels=True):
     ''' Split data into training and test set '''
 
     labelValues = dataFrame[targetFeature].unique()
@@ -13,7 +14,7 @@ def splitData(targetFeature, dataFrame, trainingRatio):
     # Ensure that the training and test contain all label values
     training = dataFrame.sample(n=trainingSize, replace=False)
     test = dataFrame.drop(training.index)
-    containAllLabels = False
+    containAllLabels = (not containAllLabels) # Negate this value so it can be used as the while loop terminating condition
     while (not containAllLabels):
         for labelValue in labelValues:
             if (labelValue not in training[targetFeature].unique() or labelValue not in test[targetFeature].unique()):
@@ -201,7 +202,7 @@ def kFoldCrossValidationResult(kFolds, targetFeature, dataFrame, model):
             for kTrain, kTest in zip(kTrainings, kTests):
                 model.train(kTrain, quiet=True)
                 kPred = model.classify(kTest.drop([targetFeature], axis=1), quiet=True)
-                error = computeError(kPred["Prediction"], kTest[targetFeature])
+                error = ev.computeError(kPred["Prediction"], kTest[targetFeature])
                 result[k-2].append(error)
     except ValueError as ex:
         print(str(ex) + ". Return early...")

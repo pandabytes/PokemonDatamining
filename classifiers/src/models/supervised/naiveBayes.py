@@ -11,16 +11,17 @@ class NaiveBayes(SupervisedModel):
         in a data frame object each.
     '''
 
-    # Static variable
-    ColumnNameFormat = "{0}={1}"
-
     def __init__(self, targetFeature: str, allLabels: [str]):
         ''' Constructor '''
         super().__init__(targetFeature)
         self._labelProbabilities = pd.Series()
         self._allLabels = allLabels
-        self._categoricalProbTable = pd.DataFrame(index=self._allLabels)
-        self._continuousMeanStdTable = pd.DataFrame(index=self._allLabels)
+
+        # {"label1": {"feature1": {value1: probability1}}}
+        self._categoricalProbs = dict((label, {}) for label in self._allLabels)
+
+        # {"label1": {"feature1": {"mean": value, "std": value}}}
+        self._continuousMeanStd = dict((label, {}) for label in self._allLabels)
 
     @property
     def name(self) -> str:
@@ -31,16 +32,17 @@ class NaiveBayes(SupervisedModel):
             This doesn't clear the properties of the model, however.
         '''
         self._labelProbabilities.drop(self._labelProbabilities.index, axis=0, inplace=True)
-
-        self._categoricalProbTable.drop(self._categoricalProbTable.index, axis=0, inplace=True)
-        self._categoricalProbTable.drop(self._categoricalProbTable.columns, axis=1, inplace=True)
-
-        self._continuousMeanStdTable.drop(self._continuousMeanStdTable.index, axis=0, inplace=True)
-        self._continuousMeanStdTable.drop(self._continuousMeanStdTable.columns, axis=1, inplace=True)
+        
+        for features in self._categoricalProbs.values():
+            features.clear()
+        
+        for features in self._continuousMeanStd.values():
+            features.clear()
 
     @decor.elapsedTime
     def train(self, dataFrame, **kwargs):
         ''' Train the naive bayes with the given data frame input '''
+        self.clear()
         self._computeLabelProbabilities(dataFrame)
         self._computeConditionalProbabilities(dataFrame)
 
@@ -64,42 +66,37 @@ class NaiveBayes(SupervisedModel):
                 for feature in dataFrame.columns.values:
                     featureType = super()._getFeatureType(dataFrame, feature)
                     if (featureType == FeatureType.Categorical):
-                        columnName = NaiveBayes.ColumnNameFormat.format(feature, row[feature])
-                        columnValues = self._categoricalProbTable.columns.values
-
                         # Ignore unseen value and continue to use other probabilities
-                        if (columnName in columnValues):
-                            logProbability += math.log(self._categoricalProbTable.loc[label, columnName])
+                        value = row[feature]
+                        if (value in self._categoricalProbs[label][feature]):
+                            probability = self._categoricalProbs[label][feature][value]
+                            logProbability += math.log(probability)
                     
                     elif (featureType == FeatureType.Continuous):
-                        columnMean = NaiveBayes.ColumnNameFormat.format(feature, "mean")
-                        columnStd = NaiveBayes.ColumnNameFormat.format(feature, "std")
-                        columnValues = self._continuousMeanStdTable.columns.values
+                        meansAndStds = self._continuousMeanStd[label][feature]
+                        if ("mean" in meansAndStds and "std" in meansAndStds):
+                            mean = meansAndStds["mean"]
+                            std = meansAndStds["std"]
 
-                        # Ignore trivial feature and continue to use other probabilities
-                        if (columnMean in columnValues and columnStd in columnValues):
-                            mean = self._continuousMeanStdTable.loc[label, columnMean]
-                            std = self._continuousMeanStdTable.loc[label, columnStd]
-                            if (not math.isnan(mean) and not math.isnan(std)):
-                                # Ignore any 0 or near-0 probability. Not worth considering
-                                gaussianProb = self._getGaussianProbability(row[feature], mean, std)
-                                if (gaussianProb > 0):
-                                    logProbability += math.log(gaussianProb)
+                            # Ignore any 0 or near-0 probability. Not worth considering
+                            gaussianProb = self._getGaussianProbability(row[feature], mean, std)
+                            if (gaussianProb > 0):
+                                logProbability += math.log(gaussianProb)
 
-                predictProbabilities.append((label,  math.exp(logProbability)))
+                predictProbabilities.append((label, math.exp(logProbability)))
 
             # Find the best label and the probability associated to it
             bestLabel, bestProbability = max(predictProbabilities, key=lambda x: x[1])
             predictions.append(bestLabel)
             probabilities.append(bestProbability)
 
-        return pd.DataFrame({"Prediction": predictions, "Probability": probabilities}, index=dataFrame.index)
+        return self._createResultDataFrame(predictions, probabilities, dataFrame.index)
 
     def _computeLabelProbabilities(self, dataFrame):
         ''' Compute the label probabilities from the given data frame -> P(C)'''
         labelCounts = dataFrame[self._targetFeature].value_counts()
         for i in labelCounts.index:
-            self._labelProbabilities[i] = labelCounts[i] / len(dataFrame)
+            self._labelProbabilities.loc[i] = labelCounts[i] / len(dataFrame)
 
     def _computeConditionalProbabilities(self, dataFrame):
         ''' Compute all the conditional probabilities of the given data frame -> P(X|C) '''
@@ -112,7 +109,9 @@ class NaiveBayes(SupervisedModel):
                 featureType = super()._getFeatureType(dataFrame, feature)
 
                 if (featureType == FeatureType.Categorical):
-                    
+                    self._categoricalProbs[label][feature] = {}
+
+                    # Set up varibles in preparing to do Laplacian Correction if need to
                     laplacianValue = 0
                     totalSize = len(labelDataFrame) 
                     unseenValuesSet = set(featureValueMappings[feature]) - set(labelDataFrame[feature].unique())
@@ -124,28 +123,25 @@ class NaiveBayes(SupervisedModel):
                         laplacianValue = 1
                         totalSize += len(featureValueMappings[feature])
                         for value in unseenValuesSet:
-                            columnName = NaiveBayes.ColumnNameFormat.format(feature, value)
                             probability = 1 / totalSize
-                            self._categoricalProbTable.loc[label, columnName] = probability
+                            self._categoricalProbs[label][feature][value] = probability
 
                     # Compute conditional probabilities of seen values
                     valueCounts = labelDataFrame[feature].value_counts()
                     for value in labelDataFrame[feature].values:
-                        columnName = NaiveBayes.ColumnNameFormat.format(feature, value)
                         probability = (valueCounts[value] + laplacianValue) / totalSize
-                        self._categoricalProbTable.loc[label, columnName] = probability
+                        self._categoricalProbs[label][feature][value] = probability
 
                 elif (featureType == FeatureType.Continuous):
+                    self._continuousMeanStd[label][feature] = {}
                     mean = labelDataFrame[feature].mean()
                     std = labelDataFrame[feature].std()
-                    
+
                     # Skip zero standard deviation feature. NaN values in continuous table means 
                     # we don't include it when we compute the final probabilities.
                     if (std != 0.0):
-                        columnMean = NaiveBayes.ColumnNameFormat.format(feature, "mean")
-                        columnStd = NaiveBayes.ColumnNameFormat.format(feature, "std")
-                        self._continuousMeanStdTable.loc[label, columnMean] = mean
-                        self._continuousMeanStdTable.loc[label, columnStd] = std
+                        self._continuousMeanStd[label][feature]["mean"] = mean
+                        self._continuousMeanStd[label][feature]["std"] = std
         
         # Verify probability values are approriate
         self._verifyProbabilities()
@@ -167,12 +163,8 @@ class NaiveBayes(SupervisedModel):
 
     def _verifyProbabilities(self):
         ''' Sanity test for verifying if the computed probability values are valid '''
-        for i in self._categoricalProbTable.index:
-            for j in self._categoricalProbTable.columns.values:
-                probability = self._categoricalProbTable.loc[i, j]
-                if (probability > 1) or (probability < 0):
-                    raise ValueError("Probability needs to be between 0 and 1. Row {0} - Column {1}".format(i, j))
-
-
-                
-
+        for label, features in self._categoricalProbs.items():
+            for feature, featureData in features.items():
+                for value, probability in featureData.items():
+                    if (probability > 1) or (probability < 0):
+                        raise ValueError("Probability needs to be between 0 and 1. Row {0} - Column {1}".format(i, j))

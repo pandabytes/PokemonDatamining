@@ -70,15 +70,15 @@ class KNearestNeighbors(SupervisedModel):
 		''' Train this classifier. Set the training class variable to data
 			frame that contains only the continuous features of the training set
 		'''
-		del self._continuousFeatures[:]
+		self.clear()
 
-		# Get all continous features
+		# Get all continous features, execluding the target feature in case it's continuous
 		for feature in dataFrame.columns.values:
 			featureType = self._getFeatureType(dataFrame, feature)
-			if (featureType == FeatureType.Continuous):
+			if (feature != self._targetFeature and featureType == FeatureType.Continuous):
 				self._continuousFeatures.append(feature)
 
-		self._training = dataFrame[self._continuousFeatures + [self._targetFeature]]
+		self._training = dataFrame[self._continuousFeatures + [self._targetFeature]].copy()
 		
 	@decor.elapsedTime
 	def classify(self, dataFrame: pd.DataFrame, **kwargs):
@@ -111,7 +111,7 @@ class KNearestNeighbors(SupervisedModel):
 			predictions.append(prediction)
 			probabilities.append(probability)
 			
-		return pd.DataFrame({"Prediction": predictions, "Probability": probabilities}, index=dataFrame.index)
+		return self._createResultDataFrame(predictions, probabilities, dataFrame.index)
 
 	def getNN(self, row) -> [int]:
 		''' '''
@@ -127,7 +127,6 @@ class KNearestNeighbors(SupervisedModel):
 		rowDistances.sort(key=lambda x: x[1])
 
 		return [r[0] for r in rowDistances[:self._k]]
-
 		
 	@staticmethod
 	def _countLabelValues(labelsDistances: (str, float)) -> {str: int}:
