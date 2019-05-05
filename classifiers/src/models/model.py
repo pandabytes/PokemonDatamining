@@ -34,6 +34,27 @@ class Model:
         else:
             raise ValueError("Invalid feature %s type" % featureType)
 
+    @staticmethod
+    def isContinuous(value: object) -> bool:
+        ''' Check if the type of the given value is continous aka is its type an int or float.
+        
+            @value: value to be type-checked
+            @return: true if the type of the given value is int or float. False otherwise.
+        '''
+        valueType = type(value)
+        return (valueType is int or valueType is np.int32 or valueType is np.int64 or \
+                valueType is float or valueType is np.float32 or valueType is np.float64)
+
+    @staticmethod
+    def isCategorical(value: object) -> bool:
+        ''' Check if the type of the given value is categorical aka is its type an string or boolean.
+        
+            @value: value to be type-checked
+            @return: true if the type of the given value is str or bool. False otherwise.
+        '''
+        valueType = type(value)
+        return (valueType is str or valueType is bool or valueType is np.bool_)
+
 class SupervisedModel(Model):
     ''' Model the abstract base class structure but this class can still
         be instanitiated. Abstract methods throw an exception if 

@@ -132,16 +132,15 @@ class DecisionTree(SupervisedModel):
         '''
         leftData, rightData = None, None
         featureType = super()._getFeatureType(dataFrame, feature)
-        valueType = type(value)
 
         if (featureType == FeatureType.Continuous):
-            if not ((valueType is int) or (valueType is float) or (valueType is np.int64) or (valueType is np.float64)):
+            if not (DecisionTree.isContinuous(value)):
                 raise ValueError("Numeric feature must be passed with a numeric value")
             leftData, rightData = self.partitionContinuous(dataFrame, feature, value)
 
         elif (featureType == FeatureType.Categorical):
-            if not ((valueType is str) or (valueType is bool) or (valueType is np.bool_)):
-                raise ValueError("Categorical feature must be passed with a string value")
+            if not (DecisionTree.isCategorical(value)):
+                raise ValueError("Categorical feature must be passed with a string or boolean value")
             leftData, rightData = self.partitionDiscreteBinary(dataFrame, feature, value)
             
         return leftData, rightData
@@ -276,15 +275,13 @@ class DecisionTree(SupervisedModel):
         if (branch != "left") and (branch != "right"):
             raise ValueError("Argument branch must be either \"left\" or \"right\"")
 
-        featureValueType = type(featureValue)
-        if (featureValueType is str) or \
-           (featureValueType is bool) or (featureValueType is np.bool_):
+        if (DecisionTree.isCategorical(featureValue)):
             if (branch == "left"):
                 return "yes"
             else:
                 return "no"
 
-        elif (featureValueType is int or featureValueType is float):
+        if (DecisionTree.isContinuous(featureValue)):
             if (branch == "left"):
                 return "< {0:.2f}".format(featureValue)
             else:
@@ -316,7 +313,7 @@ class DecisionTree(SupervisedModel):
         # If the root node is a leaf node
         if (type(node) is LeafNode):
             nodeLabel = leafNodeLabelFormat.format(node.prediction, node.probability)
-            self._diGraph.node(str(nodeId), nodeLabel)
+            self._diGraph.node(str(nodeId), nodeLabel, color="red")
             return
         else:
             nodeLabel = decisionNodeLabelFunc(node.feature, node.featureValue)
@@ -331,8 +328,8 @@ class DecisionTree(SupervisedModel):
             rightId = self._nodeId + 2
             self._nodeId += 2
 
-            self._diGraph.node(str(leftId), leftLabel)
-            self._diGraph.node(str(rightId), rightLabel)
+            self._diGraph.node(str(leftId), leftLabel, color="red")
+            self._diGraph.node(str(rightId), rightLabel, color="red")
 
             self._diGraph.edge(str(nodeId), str(leftId), label=self._createEdgeLabel("left", node.featureValue))
             self._diGraph.edge(str(nodeId), str(rightId), label=self._createEdgeLabel("right", node.featureValue))
@@ -343,7 +340,7 @@ class DecisionTree(SupervisedModel):
 
             # Assign id to the left node first
             leftId = self._nodeId + 1
-            self._diGraph.node(str(leftId), leftLabel)
+            self._diGraph.node(str(leftId), leftLabel, color="red")
             self._nodeId += 1
 
             # Then assign id to the right node recursively
@@ -368,7 +365,7 @@ class DecisionTree(SupervisedModel):
             # Then assig id to the right node
             # Don't need to add 1 after each _generateGraph call. It's handled at the end of the method
             rightId = self._nodeId 
-            self._diGraph.node(str(rightId), rightLabel)
+            self._diGraph.node(str(rightId), rightLabel, color="red")
             
             self._diGraph.edge(str(nodeId), str(leftId), label=self._createEdgeLabel("left", node.featureValue))
             self._diGraph.edge(str(nodeId), str(rightId), label=self._createEdgeLabel("right", node.featureValue))
@@ -407,33 +404,50 @@ class DecisionTree(SupervisedModel):
             # First check if the value type is numeric, then we do inequality check for numbers
             # If the value is not numeric then simply compare using ==
             value = row[node.feature]
-            if ((type(value) is int or (type(value) is float)) and (value < node.featureValue)) or \
-                (value == node.featureValue):
+            if (DecisionTree.isContinuous(value) and value < node.featureValue) or (value == node.featureValue):
                 return self._classifyOneSample(row, node.left)
             else:
                 return self._classifyOneSample(row, node.right)
     
-    def _buildTreeThread(self, dataFrame):
+    def _buildTreeThread(self, dataFrame, depth):
         ''' Build the trained decision tree using multithreading. This creates 2 working thread.
             Each one is responsible for the left and right branch of the tree.
 
             @TODO: UNUSED AND IMPCOMPLETE
         '''
-        feature, featureValue, infoGain = self.findBestFeature(dataFrame)    
+        predictionCount = dataFrame[self._targetFeature].value_counts()
+
+        # Stop splitting once the max depth of the tree is reached
+        if (depth >= self._maxDepth):
+            bestLabel, bestLabelCount = max(predictionCount.items(), key=lambda x: x[1])
+            bestProb = float(bestLabelCount) / sum(predictionCount)
+            return LeafNode(prediction=bestLabel, probability=bestProb)
+
+        # Stop splitting if there's no more information to gain
+        feature, featureValue, infoGain = self.findBestFeature(dataFrame)
         if (infoGain == 0):
-            return LeafNode(dataFrame[self._targetFeature].value_counts())
+            bestLabel, bestLabelCount = max(predictionCount.items(), key=lambda x: x[1])
+            bestProb = float(bestLabelCount) / sum(predictionCount)
+            return LeafNode(prediction=bestLabel, probability=bestProb)
 
+        leftSubTree = None
+        rightSubTree = None
         leftData, rightData = self.partition(dataFrame, feature, featureValue)
+        if (depth == 0):
+            # Start the threads asynchronously
+            pool = ThreadPool(processes=2)
+            t1 = pool.apply_async(self._buildTreeThread, (leftData, depth + 1))
+            t2 = pool.apply_async(self._buildTreeThread, (rightData, depth + 1))
+            print("waiting for threads")
+            t1.wait()
+            t2.wait()
+            leftSubTree = t1.get()
+            rightSubTree = t2.get()
+        else:
+            leftSubTree = self._buildTreeThread(leftData, depth + 1)
+            rightSubTree = self._buildTreeThread(rightData, depth + 1)
 
-        # Start the threads asynchronously
-        pool = ThreadPool(processes=2)
-        t1 = pool.apply_async(self._buildTree, (leftData, 0))
-        t2 = pool.apply_async(self._buildTree, (rightData, 0))
-
-        # Waiting for threads to complete
-        t1.wait()
-        t2.wait()
-        return DecisionNode(t1.get(), t2.get(), feature, featureValue)
+        return DecisionNode(leftSubTree, rightSubTree, feature, featureValue)
 
     def _buildTree(self, dataFrame: pd.DataFrame, depth: int) -> TreeNode:
         ''' Build the trained decision tree with the given data frame
