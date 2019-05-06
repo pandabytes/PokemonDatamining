@@ -1,31 +1,12 @@
 import numpy as np
 import pandas as pd
 import utils.decorators as decor
+
 from graphviz import Digraph
 from multiprocessing.pool import ThreadPool
-from ..model import SupervisedModel, FeatureType
 
-class TreeNode:
-    ''' Base class for representing tree node '''
-    def __init__(self, left=None, right=None):
-        self.left = left
-        self.right = right
-
-class DecisionNode(TreeNode):
-    ''' Class node that contains the split information. It contains the
-        the feature is chosen to be split and its value
-    '''
-    def __init__(self, left=None, right=None, feature=None, featureValue=None):
-        super().__init__(left, right)
-        self.feature = feature
-        self.featureValue = featureValue
-
-class LeafNode(TreeNode):
-    ''' Class node that contains the prediction of the sample's label '''
-    def __init__(self, prediction, probability):
-        super().__init__(None, None)
-        self.prediction = prediction
-        self.probability = probability
+from .treeNode import TreeNode, DecisionNode, LeafNode
+from models.model import SupervisedModel, FeatureType
 
 class DecisionTree(SupervisedModel):
     ''' Decision Tree classifiier. It takes a target feature as the predicted feature.
@@ -313,11 +294,11 @@ class DecisionTree(SupervisedModel):
         # If the root node is a leaf node
         if (type(node) is LeafNode):
             nodeLabel = leafNodeLabelFormat.format(node.prediction, node.probability)
-            self._diGraph.node(str(nodeId), nodeLabel, color="red")
+            self._addNode(LeafNode, nodeId, nodeLabel)
             return
         else:
             nodeLabel = decisionNodeLabelFunc(node.feature, node.featureValue)
-            self._diGraph.node(str(nodeId), nodeLabel)
+            self._addNode(DecisionNode, nodeId, nodeLabel)
 
         if (type(left) is LeafNode and type(right) is LeafNode):
             leftLabel = leafNodeLabelFormat.format(left.prediction, left.probability)
@@ -328,11 +309,11 @@ class DecisionTree(SupervisedModel):
             rightId = self._nodeId + 2
             self._nodeId += 2
 
-            self._diGraph.node(str(leftId), leftLabel, color="red")
-            self._diGraph.node(str(rightId), rightLabel, color="red")
+            self._addNode(LeafNode, leftId, nodeLabel)
+            self._addNode(LeafNode, rightId, nodeLabel)
 
-            self._diGraph.edge(str(nodeId), str(leftId), label=self._createEdgeLabel("left", node.featureValue))
-            self._diGraph.edge(str(nodeId), str(rightId), label=self._createEdgeLabel("right", node.featureValue))
+            self._addEdge(nodeId, leftId, self._createEdgeLabel("left", node.featureValue))
+            self._addEdge(nodeId, rightId, self._createEdgeLabel("right", node.featureValue))
             
         elif (type(left) is LeafNode):
             leftLabel = leafNodeLabelFormat.format(left.prediction, left.probability)
@@ -340,17 +321,17 @@ class DecisionTree(SupervisedModel):
 
             # Assign id to the left node first
             leftId = self._nodeId + 1
-            self._diGraph.node(str(leftId), leftLabel, color="red")
+            self._addNode(LeafNode, leftId, leftLabel)
             self._nodeId += 1
 
             # Then assign id to the right node recursively
             rightId = self._nodeId + 1
-            self._diGraph.node(str(rightId), rightLabel)
+            self._addNode(DecisionNode, rightId, rightLabel)
             self._nodeId += 1
             self._generateGraph(right)
 
-            self._diGraph.edge(str(nodeId), str(leftId), label=self._createEdgeLabel("left", node.featureValue))
-            self._diGraph.edge(str(nodeId), str(rightId), label=self._createEdgeLabel("right", node.featureValue))
+            self._addEdge(nodeId, leftId, self._createEdgeLabel("left", node.featureValue))
+            self._addEdge(nodeId, rightId, self._createEdgeLabel("right", node.featureValue))
 
         elif (type(right) is LeafNode):
             leftLabel = decisionNodeLabelFunc(left.feature, left.featureValue)
@@ -358,38 +339,51 @@ class DecisionTree(SupervisedModel):
 
             # Assign id to the left node first recursively
             leftId = self._nodeId + 1
-            self._diGraph.node(str(leftId), leftLabel)
+            self._addNode(DecisionNode, leftId, leftLabel)
             self._nodeId += 1
             self._generateGraph(left)
 
             # Then assig id to the right node
             # Don't need to add 1 after each _generateGraph call. It's handled at the end of the method
             rightId = self._nodeId 
-            self._diGraph.node(str(rightId), rightLabel, color="red")
+            self._addNode(LeafNode, rightId, rightLabel)
             
-            self._diGraph.edge(str(nodeId), str(leftId), label=self._createEdgeLabel("left", node.featureValue))
-            self._diGraph.edge(str(nodeId), str(rightId), label=self._createEdgeLabel("right", node.featureValue))
-            
+            self._addEdge(nodeId, leftId, self._createEdgeLabel("left", node.featureValue))
+            self._addEdge(nodeId, rightId, self._createEdgeLabel("right", node.featureValue))
+
         else:
             leftLabel = decisionNodeLabelFunc(left.feature, left.featureValue)
             rightLabel = decisionNodeLabelFunc(right.feature, right.featureValue)
 
             # Assign id to the left node first recursively
             leftId = self._nodeId + 1
-            self._diGraph.node(str(leftId), leftLabel)
+            self._addNode(DecisionNode, leftId, leftLabel)
             self._nodeId += 1
             self._generateGraph(left)
 
             # Then assign id to the right node recursively
             # Don't need to add 1 after each _generateGraph call. It's handled at the end of the method
             rightId = self._nodeId
-            self._diGraph.node(str(rightId), rightLabel)
+            self._addNode(DecisionNode, rightId, rightLabel)
             self._generateGraph(right)
 
-            self._diGraph.edge(str(nodeId), str(leftId), label=self._createEdgeLabel("left", node.featureValue))
-            self._diGraph.edge(str(nodeId), str(rightId), label=self._createEdgeLabel("right", node.featureValue))
+            self._addEdge(nodeId, leftId, self._createEdgeLabel("left", node.featureValue))
+            self._addEdge(nodeId, rightId, self._createEdgeLabel("right", node.featureValue))
 
         self._nodeId += 1
+
+    def _addEdge(self, fromId: int, toId: int, nodeLabel: str):
+        ''' '''
+        self._diGraph.edge(str(fromId), str(toId), label=nodeLabel)
+
+    def _addNode(self, nodeType: TreeNode, nodeId: int, nodeLabel: str):
+        ''' '''
+        if (nodeType is LeafNode):
+            self._diGraph.node(str(nodeId), nodeLabel, color="red")
+        elif (nodeType is DecisionNode):
+            self._diGraph.node(str(nodeId), nodeLabel)
+        else:
+            raise ValueError("Invalid node type \"{0}\"".format(nodeType, LeafNode, DecisionNode))
 
     def _classifyOneSample(self, row: pd.Series, node: TreeNode) -> (str, float):
         ''' Classfiy one sample 

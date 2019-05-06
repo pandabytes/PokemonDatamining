@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import random
 import utils.evaluations as ev
-from models import KNearestNeighbors
+from models.supervised import KNearestNeighbors
 
 def splitData(targetFeature, dataFrame, trainingRatio, containAllLabels=True):
     ''' Split data into training and test set '''

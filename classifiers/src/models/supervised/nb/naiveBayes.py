@@ -2,7 +2,7 @@ import math
 import numpy as np
 import pandas as pd
 import utils.decorators as decor
-from ..model import SupervisedModel, FeatureType
+from models.model import SupervisedModel, FeatureType
 
 class NaiveBayes(SupervisedModel):
     ''' Naive Bayes classifiier. It takes a target feature as the predicted feature and
