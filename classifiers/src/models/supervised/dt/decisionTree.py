@@ -6,7 +6,8 @@ from graphviz import Digraph
 from multiprocessing.pool import ThreadPool
 
 from .treeNode import TreeNode, DecisionNode, LeafNode
-from models.model import SupervisedModel, FeatureType
+from models.model import FeatureType
+from models.supervised import SupervisedModel
 
 class DecisionTree(SupervisedModel):
     ''' Decision Tree classifiier. It takes a target feature as the predicted feature.

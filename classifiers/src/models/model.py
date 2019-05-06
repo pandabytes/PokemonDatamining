@@ -54,37 +54,3 @@ class Model:
         '''
         valueType = type(value)
         return (valueType is str or valueType is bool or valueType is np.bool_)
-
-class SupervisedModel(Model):
-    ''' Model the abstract base class structure but this class can still
-        be instanitiated. Abstract methods throw an exception if 
-        they are not overriden.
-    '''
-    def __init__(self, targetFeature):
-        ''' Constructor '''
-        self._targetFeature = targetFeature
-
-    @property
-    def targetFeature(self) -> str:
-        return self._targetFeature
-    
-    @targetFeature.setter
-    def targetFeature(self, value: str):
-        self._targetFeature = value
-
-    def classify(self, dataFrame: pd.DataFrame, **kwargs):
-        ''' '''
-        if (self._targetFeature in dataFrame.columns.values):
-            raise ValueError("Test data must not contain the target feature \"%s\"" % self._targetFeature)
-
-    def _createResultDataFrame(self, predictions: [str], probabilities: [float], indexes=None):
-        ''' '''
-        return pd.DataFrame({"Prediction": predictions, "Probability": probabilities}, index=indexes)
-
-class UnsupervisedModel(Model):
-    ''' '''
-    def __init__(self):
-        ''' Constructor '''
-        pass
-
-

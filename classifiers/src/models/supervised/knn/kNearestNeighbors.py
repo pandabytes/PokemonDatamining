@@ -2,7 +2,8 @@ import numpy as np
 import pandas as pd
 import typing as tp
 import utils.decorators as decor
-from models.model import SupervisedModel, FeatureType
+from models.model import FeatureType
+from models.supervised import SupervisedModel
 
 class KNearestNeighbors(SupervisedModel):
 	''' '''

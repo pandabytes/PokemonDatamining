@@ -4,7 +4,7 @@ import random
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from models import DecisionTree, NaiveBayes, KNearestNeighbors
+from models.supervised import DecisionTree, NaiveBayes, KNearestNeighbors
 from utils import plots as pl, samplings as sp, evaluations as ev
 
 # # Load the Pokemon data
